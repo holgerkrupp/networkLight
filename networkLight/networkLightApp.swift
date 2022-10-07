@@ -35,7 +35,7 @@ struct SpeedLimit: Identifiable, Codable{
             self.upperlimit = try! container.decode(Double.self, forKey: .upperlimit)
             self.lowerlimit = try! container.decode(Double.self, forKey: .lowerlimit)
             self.icon = try! container.decode(String.self, forKey: .icon)
-            self.id = try! container.decode(UUID.self, forKey: .id)
+            self.id = UUID()
         }
     }
     
@@ -55,11 +55,16 @@ struct networkLightApp: App {
     let persistenceController = PersistenceController.shared
     @State var currentNumber: String = "1"
 
-    @State  var Speeds = [String:Speed]()
+    @State var Speeds = [String:Speed]()
     @State var running:Bool = false
     @State var SpeedLimits:[SpeedLimit]?
     
 
+    var maxSpeeds:[String:Speed] = [
+        "Download":Speed(id: UUID(), speed: 100, unit: "Mbps", date: Date(), icon: nil),
+        "Upload":Speed(id: UUID(), speed: 30, unit: "Mbps", date: Date(), icon: nil)
+    ]
+    
     var body: some Scene {
    
 //        WindowGroup(id: "Settings") {
@@ -108,7 +113,7 @@ struct networkLightApp: App {
                 
             }.keyboardShortcut("q")
         }label: {
-            Text(Speeds["Download"]?.icon?.description ?? "--").onAppear(){
+            Text(Speeds["Download"]?.icon?.description ?? "⚪️").onAppear(){
                 Task{
                     readSpeedLimits()
                 }
@@ -176,8 +181,9 @@ struct networkLightApp: App {
             let UploadComponents = output[UploadRange].components(separatedBy: " ")
             
             var Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
-            if let limits = SpeedLimits, let speed = Upload.speed{
-                let limit = limits.filter { $0.upperlimit ?? 0.0 > speed && $0.lowerlimit ?? 0.0 < speed}
+            if let limits = SpeedLimits, let speed = Upload.speed, let max = maxSpeeds["Upload"]?.speed{
+                let ratio = speed/max*100
+                let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
                 Upload.icon = limit.first?.icon
             }
             Speeds.updateValue(Upload, forKey: "Upload")
@@ -189,7 +195,9 @@ struct networkLightApp: App {
             let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
             var Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
 
-            if let limits = SpeedLimits, let speed = Download.speed{
+            if let limits = SpeedLimits, let speed = Download.speed, let max = maxSpeeds["Download"]?.speed{
+                let ratio = speed/max*100
+
                 let limit = limits.filter { $0.upperlimit ?? 0.0 > speed && $0.lowerlimit ?? 0.0 < speed}
                 Download.icon = limit.first?.icon
             }
