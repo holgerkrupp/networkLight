@@ -9,11 +9,7 @@ import SwiftUI
 import CoreData
 import Foundation
 
-struct Speed{
-    var speed: Double?
-    var unit: String?
-    var date: Date?
-}
+
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -72,6 +68,9 @@ struct ContentView: View {
     }
     
     private func networkquality() throws{
+        
+        // there is the option to use "networkquality -c" which creates machine readable output (JSON). Unfortunatly Mbps has to be calculated manually from the data provided and I don't know how to do that. Therefore I scrap the output of the human readable format until I found a solution.
+        
         let task = Process()
         let pipe = Pipe()
         
