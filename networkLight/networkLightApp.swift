@@ -12,26 +12,65 @@ struct Speed{
     var speed: Double?
     var unit: String?
     var date: Date?
+    var icon: String?
+}
+struct SpeedLimit: Identifiable, Codable{
+    var upperlimit: Double?
+    var lowerlimit: Double?
+    var icon: String?
+    var id = UUID()
+    
+    enum CodingKeys: CodingKey{
+        case upperlimit, lowerlimit, icon, id
+    }
+    
+    init(upperlimit: Double, lowerlimit: Double, icon: String){
+        self.upperlimit = upperlimit
+        self.lowerlimit = lowerlimit
+        self.icon = icon
+    }
+    
+    init(from decoder: Decoder) throws {
+        if let container = try? decoder.container(keyedBy: CodingKeys.self){
+            self.upperlimit = try! container.decode(Double.self, forKey: .upperlimit)
+            self.lowerlimit = try! container.decode(Double.self, forKey: .lowerlimit)
+            self.icon = try! container.decode(String.self, forKey: .icon)
+            self.id = try! container.decode(UUID.self, forKey: .id)
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(upperlimit, forKey: .upperlimit)
+        try container.encode(lowerlimit, forKey: .lowerlimit)
+        try container.encode(icon, forKey: .icon)
+        
+    }
 }
 
 @main
 
 struct networkLightApp: App {
     let persistenceController = PersistenceController.shared
-    
     @State var currentNumber: String = "1"
-    
 
     @State  var Speeds = [String:Speed]()
     @State var running:Bool = false
+    @State var SpeedLimits:[SpeedLimit]?
+    
 
     var body: some Scene {
-        WindowGroup {
+   
+//        WindowGroup(id: "Settings") {
+//            Text("Settings Window")
+//        }
+        WindowGroup("Settings Window") {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
-        }
+        }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
         
-        MenuBarExtra(currentNumber, systemImage: "\(currentNumber).circle") {
+        MenuBarExtra {
             if let upload = Speeds["Upload"]{
                 if let speed =  upload.speed{
                     Text("Upload: \(String(speed)) \(upload.unit ?? "Mbps")")
@@ -56,17 +95,47 @@ struct networkLightApp: App {
             
             Button("Export Data") {
             }.disabled(true)
+            
             Button("Settings") {
-            }.keyboardShortcut(",").disabled(true)
+                
+            }.keyboardShortcut(",")
+    
+            
             Divider()
+            
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
                 
             }.keyboardShortcut("q")
-
+        }label: {
+            Text(Speeds["Download"]?.icon?.description ?? "--").onAppear(){
+                Task{
+                    readSpeedLimits()
+                }
+            }
         }
     }
     
+    func readSpeedLimits(){
+        print("readLimits")
+        if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
+            
+            SpeedLimits = try? JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
+        }else{
+
+            SpeedLimits = [
+                SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
+                SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
+                SpeedLimit(upperlimit: 20.0,lowerlimit: 0.0,icon: "🔴")
+            ]
+            if let encoded = try? JSONEncoder().encode(SpeedLimits){
+                UserDefaults.standard.set(encoded, forKey: "SpeedLimits")
+            }else{
+                NSLog("Could not encode \(SpeedLimits) for key \("SpeedLimits")")
+            }
+        }
+    }
+
     func readNetworkStatus() async{
         running = true
         do {
@@ -106,7 +175,11 @@ struct networkLightApp: App {
             
             let UploadComponents = output[UploadRange].components(separatedBy: " ")
             
-            let Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
+            var Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
+            if let limits = SpeedLimits, let speed = Upload.speed{
+                let limit = limits.filter { $0.upperlimit ?? 0.0 > speed && $0.lowerlimit ?? 0.0 < speed}
+                Upload.icon = limit.first?.icon
+            }
             Speeds.updateValue(Upload, forKey: "Upload")
         }
         
@@ -114,8 +187,12 @@ struct networkLightApp: App {
             let DownloadRange = Range(uncheckedBounds: (lower: DownloadRangeStart, upper: DownloadRangeEnd))
             
             let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
-            
-            let Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
+            var Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
+
+            if let limits = SpeedLimits, let speed = Download.speed{
+                let limit = limits.filter { $0.upperlimit ?? 0.0 > speed && $0.lowerlimit ?? 0.0 < speed}
+                Download.icon = limit.first?.icon
+            }
             Speeds.updateValue(Download, forKey: "Download")
             
         }

@@ -13,6 +13,8 @@
 		483BCF9D28EDFBD700568547 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 483BCF9C28EDFBD700568547 /* Preview Assets.xcassets */; };
 		483BCF9F28EDFBD700568547 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483BCF9E28EDFBD700568547 /* Persistence.swift */; };
 		483BCFA228EDFBD700568547 /* networkLight.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 483BCFA028EDFBD700568547 /* networkLight.xcdatamodeld */; };
+		48550A5F28F01379000733B9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 48550A5E28F01379000733B9 /* README.md */; };
+		48550A6128F013F3000733B9 /* supportfunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48550A6028F013F3000733B9 /* supportfunctions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +26,8 @@
 		483BCF9E28EDFBD700568547 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		483BCFA128EDFBD700568547 /* networkLight.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = networkLight.xcdatamodel; sourceTree = "<group>"; };
 		483BCFA328EDFBD700568547 /* networkLight.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = networkLight.entitlements; sourceTree = "<group>"; };
+		48550A5E28F01379000733B9 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		48550A6028F013F3000733B9 /* supportfunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = supportfunctions.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,6 +44,7 @@
 		483BCF8928EDFBD500568547 = {
 			isa = PBXGroup;
 			children = (
+				48550A5E28F01379000733B9 /* README.md */,
 				483BCF9428EDFBD500568547 /* networkLight */,
 				483BCF9328EDFBD500568547 /* Products */,
 			);
@@ -63,6 +68,7 @@
 				483BCFA328EDFBD700568547 /* networkLight.entitlements */,
 				483BCFA028EDFBD700568547 /* networkLight.xcdatamodeld */,
 				483BCF9B28EDFBD700568547 /* Preview Content */,
+				48550A6028F013F3000733B9 /* supportfunctions.swift */,
 			);
 			path = networkLight;
 			sourceTree = "<group>";
@@ -133,6 +139,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48550A5F28F01379000733B9 /* README.md in Resources */,
 				483BCF9D28EDFBD700568547 /* Preview Assets.xcassets in Resources */,
 				483BCF9A28EDFBD700568547 /* Assets.xcassets in Resources */,
 			);
@@ -149,6 +156,7 @@
 				483BCF9828EDFBD500568547 /* ContentView.swift in Sources */,
 				483BCF9628EDFBD500568547 /* networkLightApp.swift in Sources */,
 				483BCFA228EDFBD700568547 /* networkLight.xcdatamodeld in Sources */,
+				48550A6128F013F3000733B9 /* supportfunctions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
