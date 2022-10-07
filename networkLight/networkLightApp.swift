@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import CoreData
+
 
 struct Speed{
     var id = UUID()
@@ -41,7 +43,6 @@ struct SpeedLimit: Identifiable, Codable{
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
         try container.encode(upperlimit, forKey: .upperlimit)
         try container.encode(lowerlimit, forKey: .lowerlimit)
         try container.encode(icon, forKey: .icon)
@@ -53,6 +54,7 @@ struct SpeedLimit: Identifiable, Codable{
 
 struct networkLightApp: App {
     let persistenceController = PersistenceController.shared
+    let viewContext = PersistenceController.shared.container.viewContext
     @State var currentNumber: String = "1"
 
     @State var Speeds = [String:Speed]()
@@ -145,9 +147,34 @@ struct networkLightApp: App {
         running = true
         do {
             try await networkquality()
+            addItem()
             running = false
         } catch {
             running = false
+        }
+    }
+    
+    private func addItem() {
+        withAnimation {
+            let newSpeedLog = SpeedLog(context: viewContext)
+            if let download = Speeds["Download"]?.speed{
+                newSpeedLog.download = download
+            }
+            if let upload = Speeds["Upload"]?.speed{
+                newSpeedLog.upload = upload
+            }
+            if let date = Speeds["Upload"]?.date{
+                newSpeedLog.date = date
+            }
+
+            do {
+                try viewContext.save()
+            } catch {
+                // Replace this implementation with code to handle the error appropriately.
+                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
+                let nsError = error as NSError
+                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            }
         }
     }
     
