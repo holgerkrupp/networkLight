@@ -53,14 +53,22 @@ struct SpeedLimit: Identifiable, Codable{
 @main
 
 struct networkLightApp: App {
+
+    
     let persistenceController = PersistenceController.shared
     let viewContext = PersistenceController.shared.container.viewContext
+    
     @State var currentNumber: String = "1"
-
+    
     @State var Speeds = [String:Speed]()
     @State var running:Bool = false
     @State var SpeedLimits:[SpeedLimit]?
     
+    @State var timer:Timer? = nil
+    @State var timerrunning:Bool = false
+    var repleattime = 10*60 // in seconds
+    
+
 
     var maxSpeeds:[String:Speed] = [
         "Download":Speed(id: UUID(), speed: 100, unit: "Mbps", date: Date(), icon: nil),
@@ -78,18 +86,20 @@ struct networkLightApp: App {
         }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
         
         MenuBarExtra {
-            if let upload = Speeds["Upload"]{
-                if let speed =  upload.speed{
-                    Text("Upload: \(String(speed)) \(upload.unit ?? "Mbps")")
+            Group{
+                if let upload = Speeds["Upload"]{
+                    if let speed =  upload.speed{
+                        Text("Upload: \(String(speed)) \(upload.unit ?? "Mbps")")
+                    }
                 }
-            }
-            if let download = Speeds["Download"]{
-                if let speed =  download.speed{
-                    Text("Upload: \(String(speed)) \(download.unit ?? "Mbps")")
-                    Text("Last Test: \(download.date?.formatted() ?? "unknown")")
+                if let download = Speeds["Download"]{
+                    if let speed =  download.speed{
+                        Text("Upload: \(String(speed)) \(download.unit ?? "Mbps")")
+                        Text("Last Test: \(download.date?.formatted() ?? "unknown")")
+                    }
                 }
+                Divider()
             }
-            Divider()
             if running == false {
                 Button("Run Test") {
                     Task{
@@ -100,13 +110,23 @@ struct networkLightApp: App {
                 Text("running")
             }
             
+            if (timerrunning == true){
+                Button("Stop autorun"){
+                    stopTimer()
+                }
+            }else{
+                Button("Autorun every 10 Minutes"){
+                    startTimer()
+                }
+            }
+            
             Button("Export Data") {
             }.disabled(true)
             
             Button("Settings") {
                 
             }.keyboardShortcut(",")
-    
+            
             
             Divider()
             
@@ -114,12 +134,37 @@ struct networkLightApp: App {
                 NSApplication.shared.terminate(nil)
                 
             }.keyboardShortcut("q")
+           
+            ContentView()
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+
+            
         }label: {
             Text(Speeds["Download"]?.icon?.description ?? "⚪️").onAppear(){
                 Task{
                     readSpeedLimits()
                 }
             }
+        }
+    }
+    
+     func startTimer(){
+         timerrunning = true
+         timer = Timer.init(timeInterval: TimeInterval(repleattime), repeats: true, block: { timer in
+                Task{
+                    await readNetworkStatus()
+                }
+            })
+            RunLoop.current.add(timer!, forMode: RunLoop.Mode.common)
+         timer?.fire()
+    }
+    
+    
+     func stopTimer(){
+         timerrunning = false
+        if timer != nil {
+            timer?.invalidate()
+            timer = nil
         }
     }
     
@@ -144,6 +189,7 @@ struct networkLightApp: App {
     }
 
     func readNetworkStatus() async{
+        print("reading NetworkStatus")
         running = true
         do {
             try await networkquality()
@@ -225,7 +271,7 @@ struct networkLightApp: App {
             if let limits = SpeedLimits, let speed = Download.speed, let max = maxSpeeds["Download"]?.speed{
                 let ratio = speed/max*100
 
-                let limit = limits.filter { $0.upperlimit ?? 0.0 > speed && $0.lowerlimit ?? 0.0 < speed}
+                let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
                 Download.icon = limit.first?.icon
             }
             Speeds.updateValue(Download, forKey: "Download")

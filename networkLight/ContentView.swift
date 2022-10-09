@@ -14,12 +14,16 @@ import Foundation
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
+
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \SpeedLog.date, ascending: false)],
+        
         animation: .default)
-    private var items: FetchedResults<Item>
+    
+    
+    var SpeedLogs: FetchedResults<SpeedLog>
+
     @State  var Speeds = [String:Speed]()
-    @State var running:Bool = false
     
     @State var baseDownload = "1000"
     @State var baseUpload = "100"
@@ -28,28 +32,23 @@ struct ContentView: View {
     
     
     @State var limits: [SpeedLimit]? = nil
-
+    
     var body: some View {
         VStack{
-            Text("Settings")
-            Divider()
-            Text("Reference Speed")
-//            HStack{
-//                
-//                TextField("Download", text: $baseDownload)
-//                Text("Mbps")
-//                TextField("Upload", text: $baseUpload)
-//                Text("Mbps")
-//            }
-//            if let limits{
-//                Divider()
-//                Table(limits){
-//                    TableColumn("Upper limit", value: \.upperlimit.description)
-//                    TableColumn("",value: \.icon.description)
-//                    TableColumn("Lower limit", value: \.lowerlimit.description)
-//                }.lineLimit(3)
-//            }
+            Text("History")
+          
+            ForEach(SpeedLogs.prefix(10)){ speedlog in
+                Divider()
 
+                Text(speedlog.date?.formatted() ?? "--")
+
+                HStack{
+                    Text("U: \(speedlog.upload) Mbps")
+                    Text("D: \(speedlog.download) Mbps")
+
+                }
+            }
+         
         }
     }
     
@@ -73,7 +72,7 @@ struct ContentView: View {
 
     private func deleteItems(offsets: IndexSet) {
         withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
+            offsets.map { SpeedLogs[$0] }.forEach(viewContext.delete)
 
             do {
                 try viewContext.save()
