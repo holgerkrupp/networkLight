@@ -35,6 +35,7 @@ struct ContentView: View {
     
     var body: some View {
         VStack{
+            
             Text("History")
           
             ForEach(SpeedLogs.prefix(10)){ speedlog in
@@ -48,9 +49,45 @@ struct ContentView: View {
 
                 }
             }
+            Button("Export SpeedLogs"){
+                ExportCSV()
+            }
          
         }
     }
+    
+    func ExportCSV(){
+     
+            
+            let headerString: String = "Date, Upload, Download"
+            
+            
+            var exportString: String = ""
+            exportString.append(headerString)
+            exportString.append("\n")
+            
+            
+            for speed in SpeedLogs {
+                
+                let exportLine = "\(speed.date?.ISO8601Format().description ?? ""), \(speed.upload.description), \(speed.download.description)"
+                
+
+                    exportString.append(exportLine)
+                    exportString.append("\n")
+
+                
+            }
+            let fileManager = FileManager.default
+            do {
+                let path = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                let fileURL = path.appendingPathComponent("NetworkLightExport.csv")
+                try exportString.write(to: fileURL, atomically: true, encoding: .utf8)
+                               
+            } catch {
+                print("error creating file")
+            }
+        }
+        
     
 
 
