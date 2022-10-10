@@ -66,34 +66,48 @@ struct networkLightApp: App {
     
     @State var timer:Timer? = nil
     @State var timerrunning:Bool = false
-    var repleattime = 10*60 // in seconds
     
     @State var maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
     @State var maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
 
-
+    @State var repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600
 
     var maxSpeeds:[String:Speed] = [
         "Download":Speed(id: UUID(), speed: 100, unit: "Mbps", date: Date(), icon: nil),
         "Upload":Speed(id: UUID(), speed: 30, unit: "Mbps", date: Date(), icon: nil)
     ]
     
+
+    
     var body: some Scene {
    
-//        WindowGroup(id: "Settings") {
-//            Text("Settings Window")
-//        }
-            WindowGroup("Settings Window") {
+        WindowGroup() {
+            VStack{
+                Text("Warning").bold()
+                Text("For debugging purpose only")
+                Text("This App might slow down your Network traffic. Please verify with other users on your network the usage of this app.")
+            }
+        }
+            WindowGroup("Settings") {
                 SettingsView()
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
+
             }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
         
+        WindowGroup("History") {
+            HistoryView()
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .frame(width: 300, height: 800)    // << here !!
+                .frame(minWidth: 300, maxWidth: .infinity,
+                       minHeight: 600, maxHeight: .infinity)
+        }.handlesExternalEvents(matching: Set(arrayLiteral: "HistoryWindow"))
         
         MenuBarExtra {
             Group{
                 if let upload = Speeds["Upload"]{
                     if let speed =  upload.speed{
                         Text("\(upload.icon ?? "") Upload: \(String(format: "%.0f",speed)) \(upload.unit ?? "Mbps")")
+                        
                     }
                 }
                 if let download = Speeds["Download"]{
@@ -105,11 +119,11 @@ struct networkLightApp: App {
                 Divider()
             }
             if running == false {
-                Button("Run Test") {
+                Button("Run Now") {
                     Task{
                         await readNetworkStatus()
                     }
-                }
+                }.keyboardShortcut("N")
             }else{
                 Text("running")
             }
@@ -119,41 +133,63 @@ struct networkLightApp: App {
                     stopTimer()
                 }
             }else{
-                Button("Autorun every 10 Minutes"){
+                
+                Button("Autorun every \(String(repleattime/60)) Minutes"){
                     startTimer()
                 }
+                
             }
             
 
             
             Button("Settings") {
                 OpenWindows.Settingsview.open()
-            }.keyboardShortcut(",")
+            }
+            
+            Button("History") {
+                OpenWindows.Historyview.open()
+            }.keyboardShortcut("H")
+            
+            
+            
+            
+            
+            
             
             
             Divider()
+            
+            
             
             Button("Quit") {
                 timer?.invalidate()
                 NSApplication.shared.terminate(nil)
                 
             }.keyboardShortcut("q")
-           
-            HistoryView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+//
+//            HistoryView()
+//                .environment(\.managedObjectContext, persistenceController.container.viewContext)
 
             
         }label: {
-            Text(Speeds["Download"]?.icon?.description ?? "⚪️").onAppear(){
-                Task{
-                    readSpeedLimits()
+            if running == true {
+                Text("🔄")
+                
+            }else{
+                Text(Speeds["Download"]?.icon?.description ?? "⚪️").onAppear(){
+                    Task{
+                        readSpeedLimits()
+                    }
                 }
             }
+            
         }
+        
     }
     
     enum OpenWindows: String, CaseIterable {
         case Settingsview = "SettingsWindow"
+        case Historyview = "HistoryWindow"
         //As many views as you need.
         
         func open(){
@@ -185,6 +221,7 @@ struct networkLightApp: App {
     
     func readSpeedLimits(){
         print("readLimits")
+        repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600
         if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
             
             SpeedLimits = try? JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)

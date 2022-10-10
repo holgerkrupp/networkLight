@@ -14,7 +14,7 @@ struct SettingsView: View {
     @State var UploadSpeed = ""
     @State var DownloadSpeed = ""
     @State var SpeedLimits:[SpeedLimit]?
-    
+    @State var repleattime = String((UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600)/60)
 
     
     var body: some View {
@@ -48,7 +48,31 @@ struct SettingsView: View {
                 Text("Mbps")
             }
             Divider()
+            HStack{
+                Text("Autorun every ")
+                TextField("Autorun", text: $repleattime)
+                    .onSubmit {
+                        if let repleattime = Int($repleattime.wrappedValue){
+                            UserDefaults.standard.setValue(repleattime * 60, forKey: "repleattime")
+                        }
+                    }
+                Text(" Minutes.")
+            }
+            HStack{
+                Text("Max")
+                Text("Icon")
+                Text("Min")
+
+
+            }
+            ForEach(SpeedLimits ?? []){ speed in
+               
+                    let string = String(format: "%.0f %", speed.upperlimit ?? 0.0)
+                
+      
+                }
             
+           
         }
     }
     
