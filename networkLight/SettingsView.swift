@@ -21,6 +21,7 @@ struct SettingsView: View {
         VStack{
             Text("Default Speeds")
                 .onAppear(){
+                    readSpeedLimits()
                     if let maxUpload = UserDefaults.standard.object(forKey: "MaxUpload") as? Double{
                         UploadSpeed = String(maxUpload)
                     }
@@ -58,19 +59,18 @@ struct SettingsView: View {
                     }
                 Text(" Minutes.")
             }
-            HStack{
-                Text("Max")
-                Text("Icon")
-                Text("Min")
-
-
-            }
-            ForEach(SpeedLimits ?? []){ speed in
-               
-                    let string = String(format: "%.0f %", speed.upperlimit ?? 0.0)
-                
-      
+            Divider()
+            Table(SpeedLimits ?? []){
+                TableColumn("Upperlimit [%]") { speed in
+                    Text(speed.upperlimit ?? 0, format: .number)
                 }
+                TableColumn("Icon") { speed in
+                    Text(speed.icon ?? "")
+                }
+                TableColumn("Lowerlimit [%]") { speed in
+                    Text(speed.lowerlimit ?? 0, format: .number)
+                }
+            }
             
            
         }

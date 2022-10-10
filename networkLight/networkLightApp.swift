@@ -17,6 +17,8 @@ struct Speed{
     var icon: String?
 }
 struct SpeedLimit: Identifiable, Codable{
+
+    
     var upperlimit: Double?
     var lowerlimit: Double?
     var icon: String?
@@ -91,6 +93,7 @@ struct networkLightApp: App {
             WindowGroup("Settings") {
                 SettingsView()
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                    
 
             }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
         
@@ -144,7 +147,7 @@ struct networkLightApp: App {
             
             Button("Settings") {
                 OpenWindows.Settingsview.open()
-            }
+            }.keyboardShortcut(",")
             
             Button("History") {
                 OpenWindows.Historyview.open()
@@ -193,6 +196,7 @@ struct networkLightApp: App {
         //As many views as you need.
         
         func open(){
+//            repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600
             if let url = URL(string: "networkLight://\(self.rawValue)") { //replace myapp with your app's name
                 NSWorkspace.shared.open(url)
             }
@@ -344,24 +348,7 @@ struct networkLightApp: App {
             Speeds.updateValue(Download, forKey: "Download")
             
         }
-        
-//        if let DownloadRangeStart = output.range(of: ResponsivenessKeyword)?.upperBound, let DownloadRangeEnd = output.range(of: EndKeyword)?.lowerBound {
-//            let DownloadRange = Range(uncheckedBounds: (lower: DownloadRangeStart, upper: DownloadRangeEnd))
-//
-//            let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
-//            var Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
-//
-//            if let limits = SpeedLimits, let speed = Download.speed, let max = maxSpeeds["Download"]?.speed{
-//                let ratio = speed/max*100
-//
-//                let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
-//                Download.icon = limit.first?.icon
-//            }
-//            Speeds.updateValue(Download, forKey: "Download")
-//
-//        }
-        
-        dump(Speeds)
+
     }
     
     
