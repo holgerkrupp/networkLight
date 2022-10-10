@@ -65,9 +65,9 @@ struct HistoryView: View {
         exportString.append(headerString)
         exportString.append("\n")
         
-        for speed in SpeedLogs {
+        for speedlog in SpeedLogs {
             
-            let exportLine = "\(speed.date?.ISO8601Format().description ?? ""), \(speed.upload.description), \(speed.download.description)"
+            let exportLine = "\(speedlog.date?.ISO8601Format().description ?? ""), \(String(format: "%.0f",speedlog.upload)) Mbps, \(String(format: "%.0f",speedlog.download)) Mbps"
             
             
             exportString.append(exportLine)
