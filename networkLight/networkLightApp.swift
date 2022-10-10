@@ -68,6 +68,9 @@ struct networkLightApp: App {
     @State var timerrunning:Bool = false
     var repleattime = 10*60 // in seconds
     
+    @State var maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
+    @State var maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
+
 
 
     var maxSpeeds:[String:Speed] = [
@@ -202,6 +205,9 @@ struct networkLightApp: App {
 
     func readNetworkStatus() async{
         print("reading NetworkStatus")
+        maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
+        maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
+        print("maxDownload: \(maxDownload.description) - maxUpload: \(maxUpload.description)")
         running = true
         do {
             try await networkquality()
@@ -267,8 +273,8 @@ struct networkLightApp: App {
             let UploadComponents = output[UploadRange].components(separatedBy: " ")
             
             var Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
-            if let limits = SpeedLimits, let speed = Upload.speed, let max = maxSpeeds["Upload"]?.speed{
-                let ratio = speed/max*100
+            if let limits = SpeedLimits, let speed = Upload.speed{
+                let ratio = speed/maxUpload*100
                 if ratio > 100{
                     Upload.icon = limits.first?.icon
                 }else{
@@ -285,8 +291,10 @@ struct networkLightApp: App {
             let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
             var Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
 
-            if let limits = SpeedLimits, let speed = Download.speed, let max = maxSpeeds["Download"]?.speed{
-                let ratio = speed/max*100
+            
+            
+            if let limits = SpeedLimits, let speed = Download.speed{
+                let ratio = speed/maxDownload*100
                 if ratio > 100{
                     Download.icon = limits.first?.icon
                 }else{

@@ -21,10 +21,10 @@ struct SettingsView: View {
         VStack{
             Text("Default Speeds")
                 .onAppear(){
-                    if let maxUpload = UserDefaults.standard.object(forKey: "MaxUpload") as? Float{
+                    if let maxUpload = UserDefaults.standard.object(forKey: "MaxUpload") as? Double{
                         UploadSpeed = String(maxUpload)
                     }
-                    if let maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Float{
+                    if let maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double{
                         DownloadSpeed = String(maxDownload)
                     }
                 }
@@ -32,7 +32,7 @@ struct SettingsView: View {
                 Text("Upload:")
                 TextField("Upload Speed", text: $UploadSpeed)
                     .onSubmit {
-                        if let uploadFloat = Float($UploadSpeed.wrappedValue){
+                        if let uploadFloat = Double($UploadSpeed.wrappedValue){
                             UserDefaults.standard.setValue(uploadFloat, forKey: "MaxUpload")
                         }
                     }
@@ -41,7 +41,7 @@ struct SettingsView: View {
                 Text("Download:")
                 TextField("Download Speed", text: $DownloadSpeed)
                     .onSubmit {
-                        if let downloadFloat = Float($DownloadSpeed.wrappedValue){
+                        if let downloadFloat = Double($DownloadSpeed.wrappedValue){
                             UserDefaults.standard.setValue(downloadFloat, forKey: "maxDownload")
                         }
                     }
@@ -52,9 +52,7 @@ struct SettingsView: View {
         }
     }
     
-    func setMax(key: String){
-        
-    }
+
     
     func readSpeedLimits(){
         print("readLimits")
