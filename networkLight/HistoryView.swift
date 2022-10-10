@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  HistoryView.swift
 //  networkLight
 //
 //  Created by Holger Krupp on 05.10.22.
@@ -11,7 +11,7 @@ import Foundation
 
 
 
-struct ContentView: View {
+struct HistoryView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
 
@@ -44,52 +44,77 @@ struct ContentView: View {
                 Text(speedlog.date?.formatted() ?? "--")
 
                 HStack{
-                    Text("U: \(speedlog.upload) Mbps")
-                    Text("D: \(speedlog.download) Mbps")
-
+                    Text("Upload: \(String(format: "%.0f",speedlog.upload)) Mbps")
+                    Text("Download: \(String(format: "%.0f",speedlog.download)) Mbps")
                 }
             }
             Button("Export SpeedLogs"){
                 ExportCSV()
-            }
+            }.keyboardShortcut("S")
          
         }
     }
     
     func ExportCSV(){
-     
+        
+        
+        let headerString: String = "Date, Upload, Download"
+        
+        
+        var exportString: String = ""
+        exportString.append(headerString)
+        exportString.append("\n")
+        
+        for speed in SpeedLogs {
             
-            let headerString: String = "Date, Upload, Download"
+            let exportLine = "\(speed.date?.ISO8601Format().description ?? ""), \(speed.upload.description), \(speed.download.description)"
             
             
-            var exportString: String = ""
-            exportString.append(headerString)
+            exportString.append(exportLine)
             exportString.append("\n")
             
             
-            for speed in SpeedLogs {
-                
-                let exportLine = "\(speed.date?.ISO8601Format().description ?? ""), \(speed.upload.description), \(speed.download.description)"
-                
-
-                    exportString.append(exportLine)
-                    exportString.append("\n")
-
-                
-            }
-            let fileManager = FileManager.default
+        }
+        
+        if let saveURL = showSavePanel(){
             do {
-                let path = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-                let fileURL = path.appendingPathComponent("NetworkLightExport.csv")
-                try exportString.write(to: fileURL, atomically: true, encoding: .utf8)
-                               
-            } catch {
+                try exportString.write(to: saveURL, atomically: true, encoding: .utf8)
+            }catch{
                 print("error creating file")
+
             }
         }
         
+        
+        
+        
+        
+//            let fileManager = FileManager.default
+//            do {
+//                let path = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+//                let fileURL = path.appendingPathComponent("NetworkLightExport.csv")
+//                try exportString.write(to: fileURL, atomically: true, encoding: .utf8)
+//
+//            } catch {
+//                print("error creating file")
+//            }
+        }
+        
     
-
+    func showSavePanel() -> URL? {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.commaSeparatedText]
+        savePanel.canCreateDirectories = true
+        savePanel.isExtensionHidden = false
+        savePanel.allowsOtherFileTypes = false
+        savePanel.title = "Save your data"
+        savePanel.message = "Choose a folder and a name to store your results."
+        savePanel.nameFieldLabel = "File name:"
+        savePanel.nameFieldStringValue = "NetworkLightExport.csv"
+        
+        let response = savePanel.runModal()
+        return response == .OK ? savePanel.url : nil
+    }
 
     private func addItem() {
         withAnimation {
@@ -132,6 +157,6 @@ private let itemFormatter: DateFormatter = {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        HistoryView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }

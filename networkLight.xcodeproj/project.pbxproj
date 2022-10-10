@@ -8,19 +8,20 @@
 
 /* Begin PBXBuildFile section */
 		483BCF9628EDFBD500568547 /* networkLightApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483BCF9528EDFBD500568547 /* networkLightApp.swift */; };
-		483BCF9828EDFBD500568547 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483BCF9728EDFBD500568547 /* ContentView.swift */; };
+		483BCF9828EDFBD500568547 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483BCF9728EDFBD500568547 /* HistoryView.swift */; };
 		483BCF9A28EDFBD700568547 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 483BCF9928EDFBD700568547 /* Assets.xcassets */; };
 		483BCF9D28EDFBD700568547 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 483BCF9C28EDFBD700568547 /* Preview Assets.xcassets */; };
 		483BCF9F28EDFBD700568547 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483BCF9E28EDFBD700568547 /* Persistence.swift */; };
 		483BCFA228EDFBD700568547 /* networkLight.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 483BCFA028EDFBD700568547 /* networkLight.xcdatamodeld */; };
 		48550A5F28F01379000733B9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 48550A5E28F01379000733B9 /* README.md */; };
 		48550A6128F013F3000733B9 /* supportfunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48550A6028F013F3000733B9 /* supportfunctions.swift */; };
+		48550A8A28F3DCD6000733B9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48550A8928F3DCD6000733B9 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		483BCF9228EDFBD500568547 /* networkLight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = networkLight.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		483BCF9528EDFBD500568547 /* networkLightApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = networkLightApp.swift; sourceTree = "<group>"; };
-		483BCF9728EDFBD500568547 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		483BCF9728EDFBD500568547 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		483BCF9928EDFBD700568547 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		483BCF9C28EDFBD700568547 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		483BCF9E28EDFBD700568547 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
@@ -28,6 +29,8 @@
 		483BCFA328EDFBD700568547 /* networkLight.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = networkLight.entitlements; sourceTree = "<group>"; };
 		48550A5E28F01379000733B9 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		48550A6028F013F3000733B9 /* supportfunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = supportfunctions.swift; sourceTree = "<group>"; };
+		48550A8828F3D99F000733B9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		48550A8928F3DCD6000733B9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,8 +64,10 @@
 		483BCF9428EDFBD500568547 /* networkLight */ = {
 			isa = PBXGroup;
 			children = (
+				48550A8828F3D99F000733B9 /* Info.plist */,
 				483BCF9528EDFBD500568547 /* networkLightApp.swift */,
-				483BCF9728EDFBD500568547 /* ContentView.swift */,
+				483BCF9728EDFBD500568547 /* HistoryView.swift */,
+				48550A8928F3DCD6000733B9 /* SettingsView.swift */,
 				483BCF9928EDFBD700568547 /* Assets.xcassets */,
 				483BCFA328EDFBD700568547 /* networkLight.entitlements */,
 				483BCF9E28EDFBD700568547 /* Persistence.swift */,
@@ -153,8 +158,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				483BCF9F28EDFBD700568547 /* Persistence.swift in Sources */,
-				483BCF9828EDFBD500568547 /* ContentView.swift in Sources */,
+				483BCF9828EDFBD500568547 /* HistoryView.swift in Sources */,
 				483BCF9628EDFBD500568547 /* networkLightApp.swift in Sources */,
+				48550A8A28F3DCD6000733B9 /* SettingsView.swift in Sources */,
 				483BCFA228EDFBD700568547 /* networkLight.xcdatamodeld in Sources */,
 				48550A6128F013F3000733B9 /* supportfunctions.swift in Sources */,
 			);
@@ -290,6 +296,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = networkLight/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -318,6 +325,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = networkLight/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (

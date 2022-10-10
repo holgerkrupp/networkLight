@@ -80,21 +80,22 @@ struct networkLightApp: App {
 //        WindowGroup(id: "Settings") {
 //            Text("Settings Window")
 //        }
-        WindowGroup("Settings Window") {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-        }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
+            WindowGroup("Settings Window") {
+                SettingsView()
+                    .environment(\.managedObjectContext, persistenceController.container.viewContext)
+            }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
+        
         
         MenuBarExtra {
             Group{
                 if let upload = Speeds["Upload"]{
                     if let speed =  upload.speed{
-                        Text("Upload: \(String(speed)) \(upload.unit ?? "Mbps")")
+                        Text("\(upload.icon ?? "") Upload: \(String(format: "%.0f",speed)) \(upload.unit ?? "Mbps")")
                     }
                 }
                 if let download = Speeds["Download"]{
                     if let speed =  download.speed{
-                        Text("Upload: \(String(speed)) \(download.unit ?? "Mbps")")
+                        Text("\(download.icon ?? "") Download: \(String(format: "%.0f",speed)) \(download.unit ?? "Mbps")")
                         Text("Last Test: \(download.date?.formatted() ?? "unknown")")
                     }
                 }
@@ -120,22 +121,22 @@ struct networkLightApp: App {
                 }
             }
             
-            Button("Export Data") {
-            }.disabled(true)
+
             
             Button("Settings") {
-                
+                OpenWindows.Settingsview.open()
             }.keyboardShortcut(",")
             
             
             Divider()
             
             Button("Quit") {
+                timer?.invalidate()
                 NSApplication.shared.terminate(nil)
                 
             }.keyboardShortcut("q")
            
-            ContentView()
+            HistoryView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
 
             
@@ -144,6 +145,17 @@ struct networkLightApp: App {
                 Task{
                     readSpeedLimits()
                 }
+            }
+        }
+    }
+    
+    enum OpenWindows: String, CaseIterable {
+        case Settingsview = "SettingsWindow"
+        //As many views as you need.
+        
+        func open(){
+            if let url = URL(string: "networkLight://\(self.rawValue)") { //replace myapp with your app's name
+                NSWorkspace.shared.open(url)
             }
         }
     }
@@ -183,7 +195,7 @@ struct networkLightApp: App {
             if let encoded = try? JSONEncoder().encode(SpeedLimits){
                 UserDefaults.standard.set(encoded, forKey: "SpeedLimits")
             }else{
-                NSLog("Could not encode \(SpeedLimits) for key \("SpeedLimits")")
+                NSLog("Could not encode \(String(describing: SpeedLimits?.debugDescription)) for key \("SpeedLimits")")
             }
         }
     }
@@ -244,7 +256,8 @@ struct networkLightApp: App {
         
         let UploadKeyword = "Uplink capacity: "
         let DownloadKeyword = "\nDownlink capacity: "
-        let EndKeyword = "\nResponsiveness:"
+        let ResponsivenessKeyword = "\nResponsiveness: "
+   //     let EndKeyword = "\nIdle Latency:"
         let now = Date()
         
         if let UploadRangeStart = output.range(of: UploadKeyword)?.upperBound, let UploadRangeEnd = output.range(of: DownloadKeyword)?.lowerBound{
@@ -256,13 +269,17 @@ struct networkLightApp: App {
             var Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
             if let limits = SpeedLimits, let speed = Upload.speed, let max = maxSpeeds["Upload"]?.speed{
                 let ratio = speed/max*100
-                let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
-                Upload.icon = limit.first?.icon
+                if ratio > 100{
+                    Upload.icon = limits.first?.icon
+                }else{
+                    let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
+                    Upload.icon = limit.first?.icon
+                }
             }
             Speeds.updateValue(Upload, forKey: "Upload")
         }
         
-        if let DownloadRangeStart = output.range(of: DownloadKeyword)?.upperBound, let DownloadRangeEnd = output.range(of: EndKeyword)?.lowerBound {
+        if let DownloadRangeStart = output.range(of: DownloadKeyword)?.upperBound, let DownloadRangeEnd = output.range(of: ResponsivenessKeyword)?.lowerBound {
             let DownloadRange = Range(uncheckedBounds: (lower: DownloadRangeStart, upper: DownloadRangeEnd))
             
             let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
@@ -270,13 +287,35 @@ struct networkLightApp: App {
 
             if let limits = SpeedLimits, let speed = Download.speed, let max = maxSpeeds["Download"]?.speed{
                 let ratio = speed/max*100
+                if ratio > 100{
+                    Download.icon = limits.first?.icon
+                }else{
+                    let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
+                    Download.icon = limit.first?.icon
+                }
 
-                let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
-                Download.icon = limit.first?.icon
+
             }
             Speeds.updateValue(Download, forKey: "Download")
             
         }
+        
+//        if let DownloadRangeStart = output.range(of: ResponsivenessKeyword)?.upperBound, let DownloadRangeEnd = output.range(of: EndKeyword)?.lowerBound {
+//            let DownloadRange = Range(uncheckedBounds: (lower: DownloadRangeStart, upper: DownloadRangeEnd))
+//
+//            let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
+//            var Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
+//
+//            if let limits = SpeedLimits, let speed = Download.speed, let max = maxSpeeds["Download"]?.speed{
+//                let ratio = speed/max*100
+//
+//                let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
+//                Download.icon = limit.first?.icon
+//            }
+//            Speeds.updateValue(Download, forKey: "Download")
+//
+//        }
+        
         dump(Speeds)
     }
     
