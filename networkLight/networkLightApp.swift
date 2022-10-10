@@ -72,7 +72,11 @@ struct networkLightApp: App {
     @State var maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
     @State var maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
 
-    @State var repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600
+    @State var repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600 {
+        willSet{
+            UserDefaults.standard.set(repleattime, forKey: "repleattime")
+        }
+    }
 
     var maxSpeeds:[String:Speed] = [
         "Download":Speed(id: UUID(), speed: 100, unit: "Mbps", date: Date(), icon: nil),
@@ -91,7 +95,7 @@ struct networkLightApp: App {
             }
         }
             WindowGroup("Settings") {
-                SettingsView()
+                SettingsView( repleattime: $repleattime)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
                     
 
@@ -132,7 +136,8 @@ struct networkLightApp: App {
             }
             
             if (timerrunning == true){
-                Button("Stop autorun"){
+                let nextrun = timer?.fireDate.formatted(date: .omitted, time: .shortened)
+                Button("Stop autorun - next: \(nextrun ?? "-")"){
                     stopTimer()
                 }
             }else{

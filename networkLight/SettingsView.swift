@@ -14,7 +14,7 @@ struct SettingsView: View {
     @State var UploadSpeed = ""
     @State var DownloadSpeed = ""
     @State var SpeedLimits:[SpeedLimit]?
-    @State var repleattime = String((UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600)/60)
+    @Binding var repleattime :Int
 
     
     var body: some View {
@@ -51,13 +51,14 @@ struct SettingsView: View {
             Divider()
             HStack{
                 Text("Autorun every ")
-                TextField("Autorun", text: $repleattime)
-                    .onSubmit {
-                        if let repleattime = Int($repleattime.wrappedValue){
-                            UserDefaults.standard.setValue(repleattime * 60, forKey: "repleattime")
-                        }
-                    }
-                Text(" Minutes.")
+                
+                TextField("Autorun", value: $repleattime, formatter: NumberFormatter())
+//                    .onSubmit {
+//                        repleattime = Int($repleattime.wrappedValue) * 60
+//                        UserDefaults.standard.setValue(repleattime * 60, forKey: "repleattime")
+//                        
+//                    }
+                Text(" Seconds.")
             }
             Divider()
             Table(SpeedLimits ?? []){
@@ -100,8 +101,4 @@ struct SettingsView: View {
 }
 
 
-struct SettingsView_Previews: PreviewProvider {
-    static var previews: some View {
-        SettingsView()
-    }
-}
+
