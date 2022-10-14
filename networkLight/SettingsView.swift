@@ -13,7 +13,7 @@ struct SettingsView: View {
     
     @State var UploadSpeed = ""
     @State var DownloadSpeed = ""
-    @State var SpeedLimits:[SpeedLimit]?
+    @Binding var SpeedLimits : [SpeedLimit]
     @Binding var repleattime :Int
 
     
@@ -21,7 +21,7 @@ struct SettingsView: View {
         VStack{
             Text("Default Speeds")
                 .onAppear(){
-                    readSpeedLimits()
+            
                     if let maxUpload = UserDefaults.standard.object(forKey: "MaxUpload") as? Double{
                         UploadSpeed = String(maxUpload)
                     }
@@ -61,43 +61,19 @@ struct SettingsView: View {
                 Text(" Seconds.")
             }
             Divider()
-            Table(SpeedLimits ?? []){
-                TableColumn("Upperlimit [%]") { speed in
-                    Text(speed.upperlimit ?? 0, format: .number)
+
+                ForEach($SpeedLimits) { $limit in
+                    HStack{
+                        TextField("upperLimit", value: $limit.upperlimit, format: .number)
+                        TextField("Icon", text: $limit.icon)
+                        TextField("lowerlimit", value: $limit.upperlimit, format: .number)
+                    }
                 }
-                TableColumn("Icon") { speed in
-                    Text(speed.icon ?? "")
-                }
-                TableColumn("Lowerlimit [%]") { speed in
-                    Text(speed.lowerlimit ?? 0, format: .number)
-                }
-            }
             
-           
         }
     }
     
 
-    
-    func readSpeedLimits(){
-        print("readLimits")
-        if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
-            
-            SpeedLimits = try? JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
-        }else{
-            
-            SpeedLimits = [
-                SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
-                SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
-                SpeedLimit(upperlimit: 20.0,lowerlimit: 0.0,icon: "🔴")
-            ]
-            if let encoded = try? JSONEncoder().encode(SpeedLimits){
-                UserDefaults.standard.set(encoded, forKey: "SpeedLimits")
-            }else{
-                NSLog("Could not encode \(String(describing: SpeedLimits?.debugDescription)) for key \("SpeedLimits")")
-            }
-        }
-    }
 }
 
 

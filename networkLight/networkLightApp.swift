@@ -7,7 +7,8 @@
 
 import SwiftUI
 import CoreData
-
+import Combine
+import Network
 
 struct Speed{
     var id = UUID()
@@ -19,9 +20,9 @@ struct Speed{
 struct SpeedLimit: Identifiable, Codable{
 
     
-    var upperlimit: Double?
-    var lowerlimit: Double?
-    var icon: String?
+    var upperlimit: Double
+    var lowerlimit: Double
+    var icon: String
     var id = UUID()
     
     enum CodingKeys: CodingKey{
@@ -39,6 +40,11 @@ struct SpeedLimit: Identifiable, Codable{
             self.upperlimit = try! container.decode(Double.self, forKey: .upperlimit)
             self.lowerlimit = try! container.decode(Double.self, forKey: .lowerlimit)
             self.icon = try! container.decode(String.self, forKey: .icon)
+            self.id = UUID()
+        }else{
+            self.upperlimit = 0
+            self.lowerlimit = 0
+            self.icon = "🟣"
             self.id = UUID()
         }
     }
@@ -59,12 +65,43 @@ struct networkLightApp: App {
     
     let persistenceController = PersistenceController.shared
     let viewContext = PersistenceController.shared.container.viewContext
-    
-    @State var currentNumber: String = "1"
+
     
     @State var Speeds = [String:Speed]()
     @State var running:Bool = false
-    @State var SpeedLimits:[SpeedLimit]?
+   var SpeedLimits: Binding<[SpeedLimit]> { Binding(
+        get: {if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
+            do {
+                print("read Speedlimits")
+
+                return try JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
+            }catch{
+                print("could not decode Speedlimits")
+            }
+        }
+            return  [
+                SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
+                SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
+                SpeedLimit(upperlimit: 20.0,lowerlimit: 0.0,icon: "🔴")
+            ]
+        
+            
+        },
+        set: {limit in
+            dump(limit)
+            
+            do{
+                let JSON = try JSONEncoder().encode(limit)
+                UserDefaults.standard.set(JSON, forKey: "SpeedLimits")
+                
+            }catch{
+                print("could not save Speedlimits to UserDefaults")
+            }
+        }
+    )
+        
+    }
+    
     
     @State var timer:Timer? = nil
     @State var timerrunning:Bool = false
@@ -83,19 +120,24 @@ struct networkLightApp: App {
         "Upload":Speed(id: UUID(), speed: 30, unit: "Mbps", date: Date(), icon: nil)
     ]
     
-
+ 
     
     var body: some Scene {
    
-        WindowGroup() {
+        WindowGroup("NetworkLight") {
             VStack{
                 Text("Warning").bold()
                 Text("For debugging purpose only")
                 Text("This App might slow down your Network traffic. Please verify with other users on your network the usage of this app.")
+//                Button("Understood") {
+//                    //NSApplication.shared.keyWindow?.close()
+//                    NSApplication.shared.mainWindow?.close()
+//                }
             }
-        }
+        }.handlesExternalEvents(matching: Set(arrayLiteral: "NetworkLight"))
+        
             WindowGroup("Settings") {
-                SettingsView( repleattime: $repleattime)
+                SettingsView( SpeedLimits: SpeedLimits, repleattime: $repleattime)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
                     
 
@@ -104,13 +146,15 @@ struct networkLightApp: App {
         WindowGroup("History") {
             HistoryView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .frame(width: 300, height: 800)    // << here !!
+                .frame(width: 300, height: 800)
                 .frame(minWidth: 300, maxWidth: .infinity,
                        minHeight: 600, maxHeight: .infinity)
         }.handlesExternalEvents(matching: Set(arrayLiteral: "HistoryWindow"))
         
         MenuBarExtra {
+           
             Group{
+              
                 if let upload = Speeds["Upload"]{
                     if let speed =  upload.speed{
                         Text("\(upload.icon ?? "") Upload: \(String(format: "%.0f",speed)) \(upload.unit ?? "Mbps")")
@@ -180,17 +224,36 @@ struct networkLightApp: App {
 
             
         }label: {
-            if running == true {
-                Text("🔄")
+            
+            if true { // there should be a check if network is available, but all solutions block the UI.
+
+                if running == true {
+                    Text("🔘")
+                    
+                }else{
+                    
+                    Text(Speeds["Download"]?.icon?.description ?? "⚪️")
+                        .onAppear(){
+                        Task{
+                                //readSpeedLimits()
+                            
+                        }
+                    }
+                    
+                }
                 
             }else{
-                Text(Speeds["Download"]?.icon?.description ?? "⚪️").onAppear(){
-                    Task{
-                        readSpeedLimits()
-                    }
+                // no network available
+                Text("⚫️").onAppear(){
+                    
+                    Speeds["Download"]?.speed = 0.0
+                    Speeds["Upload"]?.speed = 0.0
+                    Speeds["Download"]?.date = Date()
+                    Speeds["Upload"]?.date = Date()
+                    addItem()
+
                 }
             }
-            
         }
         
     }
@@ -207,6 +270,7 @@ struct networkLightApp: App {
             }
         }
     }
+
     
      func startTimer(){
          timerrunning = true
@@ -228,26 +292,7 @@ struct networkLightApp: App {
         }
     }
     
-    func readSpeedLimits(){
-        print("readLimits")
-        repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600
-        if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
-            
-            SpeedLimits = try? JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
-        }else{
 
-            SpeedLimits = [
-                SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
-                SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
-                SpeedLimit(upperlimit: 20.0,lowerlimit: 0.0,icon: "🔴")
-            ]
-            if let encoded = try? JSONEncoder().encode(SpeedLimits){
-                UserDefaults.standard.set(encoded, forKey: "SpeedLimits")
-            }else{
-                NSLog("Could not encode \(String(describing: SpeedLimits?.debugDescription)) for key \("SpeedLimits")")
-            }
-        }
-    }
 
     func readNetworkStatus() async{
         print("reading NetworkStatus")
@@ -289,7 +334,7 @@ struct networkLightApp: App {
     }
     
     private func networkquality() async throws{
-        
+        print("networkquality")
         // there is the option to use "networkquality -c" which creates machine readable output (JSON). Unfortunatly Mbps has to be calculated manually from the data provided and I don't know how to do that. Therefore I scrap the output of the human readable format until I found a solution.
         
         let task = Process()
@@ -319,13 +364,13 @@ struct networkLightApp: App {
             let UploadComponents = output[UploadRange].components(separatedBy: " ")
             
             var Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
-            if let limits = SpeedLimits, let speed = Upload.speed{
+            if let speed = Upload.speed{
                 let ratio = speed/maxUpload*100
                 if ratio > 100{
-                    Upload.icon = limits.first?.icon
+                    Upload.icon = SpeedLimits.first?.icon.wrappedValue
                 }else{
-                    let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
-                    Upload.icon = limit.first?.icon
+                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
+                    Upload.icon = limit.first?.icon.wrappedValue
                 }
             }
             Speeds.updateValue(Upload, forKey: "Upload")
@@ -339,13 +384,13 @@ struct networkLightApp: App {
 
             
             
-            if let limits = SpeedLimits, let speed = Download.speed{
+            if let speed = Download.speed{
                 let ratio = speed/maxDownload*100
                 if ratio > 100{
-                    Download.icon = limits.first?.icon
+                    Download.icon = SpeedLimits.first?.icon.wrappedValue
                 }else{
-                    let limit = limits.filter { $0.upperlimit ?? 0.0 > ratio && $0.lowerlimit ?? 0.0 < ratio}
-                    Download.icon = limit.first?.icon
+                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue ?? 0.0 > ratio && $0.lowerlimit.wrappedValue ?? 0.0 < ratio}
+                    Download.icon = limit.first?.icon.wrappedValue
                 }
 
 
