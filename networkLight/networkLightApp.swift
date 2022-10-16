@@ -7,8 +7,6 @@
 
 import SwiftUI
 import CoreData
-import Combine
-import Network
 
 struct Speed{
     var id = UUID()
@@ -17,13 +15,13 @@ struct Speed{
     var date: Date?
     var icon: String?
 }
-struct SpeedLimit: Identifiable, Codable{
+struct SpeedLimit: Identifiable, Codable, Equatable{
 
     
     var upperlimit: Double
     var lowerlimit: Double
     var icon: String
-    var id = UUID()
+    var id: UUID
     
     enum CodingKeys: CodingKey{
         case upperlimit, lowerlimit, icon, id
@@ -33,6 +31,7 @@ struct SpeedLimit: Identifiable, Codable{
         self.upperlimit = upperlimit
         self.lowerlimit = lowerlimit
         self.icon = icon
+        self.id = UUID()
     }
     
     init(from decoder: Decoder) throws {
@@ -40,7 +39,11 @@ struct SpeedLimit: Identifiable, Codable{
             self.upperlimit = try! container.decode(Double.self, forKey: .upperlimit)
             self.lowerlimit = try! container.decode(Double.self, forKey: .lowerlimit)
             self.icon = try! container.decode(String.self, forKey: .icon)
-            self.id = UUID()
+            do{
+                self.id = try container.decode(UUID.self, forKey: .id)
+            }catch{
+                self.id = UUID()
+            }
         }else{
             self.upperlimit = 0
             self.lowerlimit = 0
@@ -54,7 +57,13 @@ struct SpeedLimit: Identifiable, Codable{
         try container.encode(upperlimit, forKey: .upperlimit)
         try container.encode(lowerlimit, forKey: .lowerlimit)
         try container.encode(icon, forKey: .icon)
-        
+        try container.encode(id, forKey: .id)
+    }
+    
+    static func == (lhs: SpeedLimit, rhs: SpeedLimit) -> Bool {
+        return
+        lhs.upperlimit == rhs.upperlimit &&
+        lhs.lowerlimit == rhs.lowerlimit
     }
 }
 
@@ -65,20 +74,26 @@ struct networkLightApp: App {
     
     let persistenceController = PersistenceController.shared
     let viewContext = PersistenceController.shared.container.viewContext
-
     
+  //  @State var connected = MonitoringNetworkState()
+
     @State var Speeds = [String:Speed]()
     @State var running:Bool = false
+    
    var SpeedLimits: Binding<[SpeedLimit]> { Binding(
         get: {if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
-            do {
-                print("read Speedlimits")
+            
+            print("get SpeedLimits")
 
-                return try JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
+            do {
+                let decoded =  try JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
+                dump(decoded)
+                return decoded
             }catch{
                 print("could not decode Speedlimits")
             }
         }
+            print("return basic")
             return  [
                 SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
                 SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
@@ -87,11 +102,12 @@ struct networkLightApp: App {
         
             
         },
-        set: {limit in
-            dump(limit)
+        set: {limits in
+            print("set SpeedLimits")
+            dump(limits)
             
             do{
-                let JSON = try JSONEncoder().encode(limit)
+                let JSON = try JSONEncoder().encode(limits)
                 UserDefaults.standard.set(JSON, forKey: "SpeedLimits")
                 
             }catch{
@@ -153,6 +169,8 @@ struct networkLightApp: App {
         
         MenuBarExtra {
            
+         //   Text(connected.isConnected ? "connected" : "no connection")
+            
             Group{
               
                 if let upload = Speeds["Upload"]{
@@ -224,36 +242,35 @@ struct networkLightApp: App {
 
             
         }label: {
-            
-            if true { // there should be a check if network is available, but all solutions block the UI.
-
-                if running == true {
-                    Text("🔘")
-                    
-                }else{
-                    
-                    Text(Speeds["Download"]?.icon?.description ?? "⚪️")
-                        .onAppear(){
-                        Task{
-                                //readSpeedLimits()
-                            
-                        }
-                    }
-                    
-                }
                 
-            }else{
-                // no network available
-                Text("⚫️").onAppear(){
-                    
-                    Speeds["Download"]?.speed = 0.0
-                    Speeds["Upload"]?.speed = 0.0
-                    Speeds["Download"]?.date = Date()
-                    Speeds["Upload"]?.date = Date()
-                    addItem()
+               Text(Speeds["Download"]?.icon?.description ?? "⚪️")
 
-                }
-            }
+            //Text(connected.isConnected ? Speeds["Download"]?.icon?.description ?? "⚪️" : "⚫️")
+            
+//            if connected.isConnected == true { // there should be a check if network is available, but all solutions block the UI.
+//
+//                if running == true {
+//                    Text("🔘").environmentObject(MonitoringNetworkState())
+//
+//                }else{
+//
+//                    Text(Speeds["Download"]?.icon?.description ?? "⚪️")
+
+//
+//                }
+//
+//            }else{
+//                // no network available
+//                Text("⚫️").onAppear(){
+//
+//                    Speeds["Download"]?.speed = 0.0
+//                    Speeds["Upload"]?.speed = 0.0
+//                    Speeds["Download"]?.date = Date()
+//                    Speeds["Upload"]?.date = Date()
+//                    addItem()
+//
+//                }
+//            }
         }
         
     }
@@ -296,6 +313,7 @@ struct networkLightApp: App {
 
     func readNetworkStatus() async{
         print("reading NetworkStatus")
+        
         maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
         maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
         print("maxDownload: \(maxDownload.description) - maxUpload: \(maxUpload.description)")

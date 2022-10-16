@@ -16,6 +16,7 @@
 		48550A5F28F01379000733B9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 48550A5E28F01379000733B9 /* README.md */; };
 		48550A6128F013F3000733B9 /* supportfunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48550A6028F013F3000733B9 /* supportfunctions.swift */; };
 		48550A8A28F3DCD6000733B9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48550A8928F3DCD6000733B9 /* SettingsView.swift */; };
+		488B8CBC28F97266004E72C0 /* network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488B8CBB28F97266004E72C0 /* network.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 		48550A8828F3D99F000733B9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		48550A8928F3DCD6000733B9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		488B8CB628F892F2004E72C0 /* NetworkLightIcon.afdesign */ = {isa = PBXFileReference; lastKnownFileType = file; path = NetworkLightIcon.afdesign; sourceTree = "<group>"; };
+		488B8CBB28F97266004E72C0 /* network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = network.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +72,7 @@
 				483BCF9528EDFBD500568547 /* networkLightApp.swift */,
 				483BCF9728EDFBD500568547 /* HistoryView.swift */,
 				48550A8928F3DCD6000733B9 /* SettingsView.swift */,
+				488B8CBB28F97266004E72C0 /* network.swift */,
 				483BCF9928EDFBD700568547 /* Assets.xcassets */,
 				483BCFA328EDFBD700568547 /* networkLight.entitlements */,
 				483BCF9E28EDFBD700568547 /* Persistence.swift */,
@@ -165,6 +168,7 @@
 				48550A8A28F3DCD6000733B9 /* SettingsView.swift in Sources */,
 				483BCFA228EDFBD700568547 /* networkLight.xcdatamodeld in Sources */,
 				48550A6128F013F3000733B9 /* supportfunctions.swift in Sources */,
+				488B8CBC28F97266004E72C0 /* network.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -293,6 +297,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = networkLight/networkLight.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
@@ -324,6 +329,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = networkLight/networkLight.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
