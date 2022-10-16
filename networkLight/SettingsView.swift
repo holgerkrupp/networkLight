@@ -73,12 +73,12 @@ struct SettingsView: View {
                     
                     HStack{
                         
-                        TextField("upperlimit", value: $limit.upperlimit, format: .number).frame(width: 60).onChange(of: $limit.wrappedValue) { newValue in
-                            self.refresh.toggle()
-                        }
+                        TextField("upperlimit", value: $limit.upperlimit, format: .number).frame(width: 60)
                         TextField("Icon", text: $limit.icon).multilineTextAlignment(.center).frame(width: 30)
                         TextField("lowerlimit", value: $limit.lowerlimit, format: .number).frame(width: 60)
-                    }.padding().frame(width: 100, alignment: .center)
+                    }.padding().frame(width: 100, alignment: .center).onChange(of: $limit.wrappedValue) { newValue in
+                        self.refresh.toggle()
+                    }
                 }
     }
     
