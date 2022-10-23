@@ -312,7 +312,7 @@ struct networkLightApp: App {
     
     func setSleepTimerRestart(){
         print("register Notification / Timer")
-        var notificationCenter = NSWorkspace.shared.notificationCenter
+        let notificationCenter = NSWorkspace.shared.notificationCenter
         let mainQueue = OperationQueue.main
         
         notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification , object: nil, queue: mainQueue) { notification in
@@ -333,6 +333,7 @@ struct networkLightApp: App {
             print("should send")
             let content = UNMutableNotificationContent()
             content.title = "Network speed low"
+            content.subtitle = Speeds["Upload"]?.date?.formatted() ?? Date().formatted()
             content.body = "U: \(Speeds["Upload"]?.icon ?? "") \(String(format: "%.0f",Speeds["Upload"]?.speed ?? 0.0)) \(Speeds["Upload"]?.unit ?? "Mbps") \nD: \(Speeds["Download"]?.icon ?? "") \(String(format: "%.0f",Speeds["Download"]?.speed ?? 0.0)) \(Speeds["Download"]?.unit ?? "Mbps")"
             
             content.sound = .defaultCritical
