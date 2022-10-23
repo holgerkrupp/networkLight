@@ -17,6 +17,8 @@ struct SettingsView: View {
     @Binding var SpeedLimits : [SpeedLimit]
     @Binding var repleattime :Int
     
+    @State var notificationSettings: UNNotificationSettings?
+    
     
     @State var refresh: Bool = false
     @FocusState private var focus: Int?
@@ -62,17 +64,12 @@ struct SettingsView: View {
                 Text("Autorun every ")
                 
                 TextField("Autorun", value: $repleattime, formatter: NumberFormatter()).frame(width: 60)
-                //                    .onSubmit {
-                //                        repleattime = Int($repleattime.wrappedValue) * 60
-                //                        UserDefaults.standard.setValue(repleattime * 60, forKey: "repleattime")
-                //
-                //                    }
                 Text(" Seconds.")
             }.padding()
             
         }
             Divider()
-                Text("Limits").bold()
+                Text("Limits [%]").bold()
        
                 ForEach($SpeedLimits) { $limit in
                     
@@ -85,19 +82,48 @@ struct SettingsView: View {
                         self.refresh.toggle()
                     }
                 }
-        Divider()
-       
-        Button("Allow Notifications"){
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { success, error in
-                if success {
-                    print("All set!")
-                } else if let error = error {
-                    print(error.localizedDescription)
-                }
-            }
+        Divider().onAppear(){
+            getNotificationSettings()
         }
+        Text("Notifications").bold()
+
+        if notificationSettings?.authorizationStatus != .authorized{
+            Button("Allow Notifications"){
+                if notificationSettings?.authorizationStatus == .denied{
+                    openSystemPrefs()
+                }else{
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { success, error in
+                        if success {
+                            print("All set!")
+                        } else if let error = error {
+                            print(error.localizedDescription)
+                        }
+                    }
+                }
+   
+            }
+        }else{
+            
+            Button("Manage Notification Settings"){
+                
+                openSystemPrefs()
+            }
+
+        }
+
     }
     
+    func openSystemPrefs(){
+        let prefsURL = URL(string: "x-apple.systempreferences:com.apple.preference.notifications?\(Bundle.main.bundleIdentifier ?? "")")!
+        print(prefsURL)
+        
+        NSWorkspace.shared.open(prefsURL)
+    }
+    func getNotificationSettings(){
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            self.notificationSettings = settings
+        }
+    }
 
 }
 

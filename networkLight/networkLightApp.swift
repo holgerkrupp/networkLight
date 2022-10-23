@@ -155,9 +155,14 @@ struct networkLightApp: App {
             WindowGroup("Settings") {
                 SettingsView( SpeedLimits: SpeedLimits, repleattime: $repleattime)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                    
+//                    .frame(width: 500, height: 800)
+//                    .frame(minWidth: 250, maxWidth: .infinity,
+//                           minHeight: 600, maxHeight: .infinity)
 
-            }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
+            }
+            .defaultSize(width: 400, height: 600)
+            .handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
+            
         
         WindowGroup("History") {
             HistoryView(compact: false)
@@ -336,7 +341,8 @@ struct networkLightApp: App {
             content.subtitle = Speeds["Upload"]?.date?.formatted() ?? Date().formatted()
             content.body = "U: \(Speeds["Upload"]?.icon ?? "") \(String(format: "%.0f",Speeds["Upload"]?.speed ?? 0.0)) \(Speeds["Upload"]?.unit ?? "Mbps") \nD: \(Speeds["Download"]?.icon ?? "") \(String(format: "%.0f",Speeds["Download"]?.speed ?? 0.0)) \(Speeds["Download"]?.unit ?? "Mbps")"
             
-            content.sound = .defaultCritical
+            content.sound = .default
+            
             let request = UNNotificationRequest(identifier: "networkLight.lowSpeed", content: content, trigger: nil)
             UNUserNotificationCenter.current().add(request)
             shouldSendNotification = false
