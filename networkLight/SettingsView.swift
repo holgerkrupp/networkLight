@@ -38,7 +38,7 @@ struct SettingsView: View {
                 TextField("Upload Speed", text: $UploadSpeed).frame(width: 60)
                     .onSubmit {
                         if let uploadFloat = Double($UploadSpeed.wrappedValue){
-                            UserDefaults.standard.setValue(uploadFloat, forKey: "MaxUpload")
+                            UserDefaults.standard.setValue(uploadFloat, forKey: "maxUpload")
                         }
                     }
                 Text("Mbps")
