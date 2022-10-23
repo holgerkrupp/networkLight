@@ -7,6 +7,8 @@
 
 import SwiftUI
 import CoreData
+import UserNotifications
+
 
 struct Speed{
     var id = UUID()
@@ -80,20 +82,19 @@ struct networkLightApp: App {
     @State var Speeds = [String:Speed]()
     @State var running:Bool = false
     
+    @State var shouldSendNotification:Bool = false
+    
    var SpeedLimits: Binding<[SpeedLimit]> { Binding(
         get: {if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
             
-            print("get SpeedLimits")
 
             do {
                 let decoded =  try JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
-                dump(decoded)
                 return decoded
             }catch{
                 print("could not decode Speedlimits")
             }
         }
-            print("return basic")
             return  [
                 SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
                 SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
@@ -103,8 +104,7 @@ struct networkLightApp: App {
             
         },
         set: {limits in
-            print("set SpeedLimits")
-            dump(limits)
+
             
             do{
                 let JSON = try JSONEncoder().encode(limits)
@@ -160,9 +160,9 @@ struct networkLightApp: App {
             }.handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
         
         WindowGroup("History") {
-            HistoryView()
+            HistoryView(compact: false)
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .frame(width: 300, height: 800)
+                .frame(width: 500, height: 800)
                 .frame(minWidth: 300, maxWidth: .infinity,
                        minHeight: 600, maxHeight: .infinity)
         }.handlesExternalEvents(matching: Set(arrayLiteral: "HistoryWindow"))
@@ -206,10 +206,11 @@ struct networkLightApp: App {
                 
                 Button("Autorun every \(String(repleattime/60)) Minutes"){
                     startTimer()
+                    setSleepTimerRestart()
                 }
                 
             }
-            
+      
 
             
             Button("Settings") {
@@ -220,7 +221,8 @@ struct networkLightApp: App {
                 OpenWindows.Historyview.open()
             }.keyboardShortcut("H")
             
-            
+            HistoryView(compact: true)
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
             
             
             
@@ -236,14 +238,13 @@ struct networkLightApp: App {
                 NSApplication.shared.terminate(nil)
                 
             }.keyboardShortcut("q")
-//
-//            HistoryView()
-//                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+
+
 
             
         }label: {
                 
-               Text(Speeds["Download"]?.icon?.description ?? "⚪️")
+            Text(running ? "🔘" : Speeds["Download"]?.icon?.description ?? "⚪️")
 
             //Text(connected.isConnected ? Speeds["Download"]?.icon?.description ?? "⚪️" : "⚫️")
             
@@ -309,10 +310,41 @@ struct networkLightApp: App {
         }
     }
     
+    func setSleepTimerRestart(){
+        print("register Notification / Timer")
+        var notificationCenter = NSWorkspace.shared.notificationCenter
+        let mainQueue = OperationQueue.main
+        
+        notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification , object: nil, queue: mainQueue) { notification in
+            // restart timer if the mac wakes up from sleep
+            if self.timerrunning{
+                stopTimer()
+                startTimer()
+            }else{
+                print("Timer was not running during sleep")
+            }
+        }
+    }
+    
+    
+    func sendNotification(){
+        print("sendNotification")
+        if shouldSendNotification == true{
+            print("should send")
+            let content = UNMutableNotificationContent()
+            content.title = "Networkspeed low"
+            content.body = "U: \(Speeds["Upload"]?.icon ?? "") \(String(format: "%.0f",Speeds["Upload"]?.speed ?? 0.0)) \(Speeds["Upload"]?.unit ?? "Mbps") \nD: \(Speeds["Download"]?.icon ?? "") \(String(format: "%.0f",Speeds["Download"]?.speed ?? 0.0)) \(Speeds["Download"]?.unit ?? "Mbps")"
+            
+            content.sound = .defaultCritical
+            let request = UNNotificationRequest(identifier: "networkLight.lowSpeed", content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request)
+            shouldSendNotification = false
+        }
+
+    }
 
 
     func readNetworkStatus() async{
-        print("reading NetworkStatus")
         
         maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
         maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
@@ -321,6 +353,7 @@ struct networkLightApp: App {
         do {
             try await networkquality()
             addItem()
+            sendNotification()
             running = false
         } catch {
             running = false
@@ -389,6 +422,10 @@ struct networkLightApp: App {
                 }else{
                     let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
                     Upload.icon = limit.first?.icon.wrappedValue
+                    
+                    if Upload.icon == SpeedLimits.last?.icon.wrappedValue {
+                        shouldSendNotification = true
+                    }
                 }
             }
             Speeds.updateValue(Upload, forKey: "Upload")
@@ -409,6 +446,10 @@ struct networkLightApp: App {
                 }else{
                     let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue ?? 0.0 > ratio && $0.lowerlimit.wrappedValue ?? 0.0 < ratio}
                     Download.icon = limit.first?.icon.wrappedValue
+                    
+                    if Download.icon == SpeedLimits.last?.icon.wrappedValue {
+                        shouldSendNotification = true
+                    }
                 }
 
 

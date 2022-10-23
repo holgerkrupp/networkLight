@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 struct SettingsView: View {
     
@@ -15,6 +16,7 @@ struct SettingsView: View {
     @State var DownloadSpeed = ""
     @Binding var SpeedLimits : [SpeedLimit]
     @Binding var repleattime :Int
+    
     
     @State var refresh: Bool = false
     @FocusState private var focus: Int?
@@ -54,18 +56,21 @@ struct SettingsView: View {
         }
             Divider()
         Text("Autorun").bold()
+        VStack{
             HStack{
                 
                 Text("Autorun every ")
                 
                 TextField("Autorun", value: $repleattime, formatter: NumberFormatter()).frame(width: 60)
-//                    .onSubmit {
-//                        repleattime = Int($repleattime.wrappedValue) * 60
-//                        UserDefaults.standard.setValue(repleattime * 60, forKey: "repleattime")
-//                        
-//                    }
+                //                    .onSubmit {
+                //                        repleattime = Int($repleattime.wrappedValue) * 60
+                //                        UserDefaults.standard.setValue(repleattime * 60, forKey: "repleattime")
+                //
+                //                    }
                 Text(" Seconds.")
             }.padding()
+            
+        }
             Divider()
                 Text("Limits").bold()
        
@@ -80,8 +85,39 @@ struct SettingsView: View {
                         self.refresh.toggle()
                     }
                 }
+        Divider()
+       
+        Button("Allow Notifications"){
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { success, error in
+                if success {
+                    print("All set!")
+                } else if let error = error {
+                    print(error.localizedDescription)
+                }
+            }
+        }
     }
     
 
 }
 
+
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        let Speedlimits = Binding<[SpeedLimit]> {
+            [SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
+            SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
+            SpeedLimit(upperlimit: 20.0,lowerlimit: 0.0,icon: "🔴")]
+        } set: { speed in
+            dump(speed)
+        }
+        let repeattime = Binding<Int> {
+            50
+        } set: { time in
+            dump(time)
+        }
+
+        SettingsView(SpeedLimits: Speedlimits, repleattime: repeattime )
+        
+    }
+}

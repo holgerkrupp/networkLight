@@ -15,50 +15,76 @@ struct HistoryView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
 
-    @FetchRequest(
+
+    @FetchRequest (
         sortDescriptors: [NSSortDescriptor(keyPath: \SpeedLog.date, ascending: false)],
-        
-        animation: .default)
-    
-    
-    var SpeedLogs: FetchedResults<SpeedLog>
+        animation: .default
+    ) var SpeedLogs: FetchedResults<SpeedLog>
 
     @State  var Speeds = [String:Speed]()
+//
+//    @State var baseDownload = "1000"
+//    @State var baseUpload = "100"
+//
     
-    @State var baseDownload = "1000"
-    @State var baseUpload = "100"
-    
-    
-    
+    @State var compact: Bool
     
     @State var limits: [SpeedLimit]? = nil
-    
+    @State var refresh: Bool = false
+
     var body: some View {
         VStack{
             
-            Text("History")
-          
-            ForEach(SpeedLogs.prefix(10)){ speedlog in
-                Divider()
+            
+            if compact{
+                ForEach(SpeedLogs.prefix(3)){ speedlog in
+                    Divider()
+                    
+                    Text(speedlog.date?.formatted() ?? "--").frame(maxWidth: .infinity, alignment: .center)
+                    
+                    VStack{
+                        Text("Upload: \(String(format: "%.0f",speedlog.upload)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
+                        Text("Download: \(String(format: "%.0f",speedlog.download)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
 
-                Text(speedlog.date?.formatted() ?? "--")
+                    }.frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }else{
+                Text("History").bold()
+                Table {
+                    TableColumn("Date") {speedlog in
+                        Text(speedlog.date?.formatted() ?? "--")
+                    }
+                    TableColumn("Upload") {speedlog in
+                        Text("\(String(format: "%.0f",speedlog.upload)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
 
-                HStack{
-                    Text("Upload: \(String(format: "%.0f",speedlog.upload)) Mbps")
-                    Text("Download: \(String(format: "%.0f",speedlog.download)) Mbps")
+                    }.width(150)
+                    TableColumn("Download") {speedlog in
+                     
+                            Text("\(String(format: "%.0f",speedlog.download)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
+
+                    }.width(150)
+                } rows: {
+                    ForEach(SpeedLogs.prefix(30)){ speedlog in
+                        TableRow(speedlog)
+                    }
+                }.frame(width: 500, height: 400)
+                
+                Button("Export SpeedLogs"){
+                    ExportCSV()
+                }.keyboardShortcut("S")
+                Button("Delete SpeedLogs"){
+                    deleteall()
                 }
             }
-            Button("Export SpeedLogs"){
-                ExportCSV()
-            }.keyboardShortcut("S")
-         
+
+
         }
     }
     
     func ExportCSV(){
         
         
-        let headerString: String = "Date, Upload, Download"
+        let headerString: String = "Date (IS8601), Date, Upload (Mbps), Download (Mbps)"
         
         
         var exportString: String = ""
@@ -67,7 +93,7 @@ struct HistoryView: View {
         
         for speedlog in SpeedLogs {
             
-            let exportLine = "\(speedlog.date?.ISO8601Format().description ?? ""), \(String(format: "%.0f",speedlog.upload)) Mbps, \(String(format: "%.0f",speedlog.download)) Mbps"
+            let exportLine = "\"\(speedlog.date?.ISO8601Format().description ?? "")\",\" \(speedlog.date?.formatted() ?? "")\", \(String(format: "%.0f",speedlog.upload)), \(String(format: "%.0f",speedlog.download))"
             
             
             exportString.append(exportLine)
@@ -84,22 +110,22 @@ struct HistoryView: View {
 
             }
         }
-        
-        
-        
-        
-        
-//            let fileManager = FileManager.default
-//            do {
-//                let path = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-//                let fileURL = path.appendingPathComponent("NetworkLightExport.csv")
-//                try exportString.write(to: fileURL, atomically: true, encoding: .utf8)
-//
-//            } catch {
-//                print("error creating file")
-//            }
+
         }
         
+    
+    func deleteall(){
+        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "SpeedLog")
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        
+        do {
+            try viewContext.execute(deleteRequest)
+            
+            self.refresh.toggle()
+        } catch let error as NSError {
+            // TODO: handle the error
+        }
+    }
     
     func showSavePanel() -> URL? {
         let savePanel = NSSavePanel()
@@ -116,21 +142,7 @@ struct HistoryView: View {
         return response == .OK ? savePanel.url : nil
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
 
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
 
     private func deleteItems(offsets: IndexSet) {
         withAnimation {
@@ -157,6 +169,6 @@ private let itemFormatter: DateFormatter = {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        HistoryView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        HistoryView(compact: false).environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }
