@@ -167,10 +167,9 @@ struct networkLightApp: App {
         WindowGroup("History") {
             HistoryView(compact: false)
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .frame(width: 500, height: 800)
-                .frame(minWidth: 300, maxWidth: .infinity,
-                       minHeight: 600, maxHeight: .infinity)
-        }.handlesExternalEvents(matching: Set(arrayLiteral: "HistoryWindow"))
+
+        }.defaultSize(width: 500, height: 600)
+        .handlesExternalEvents(matching: Set(arrayLiteral: "HistoryWindow"))
         
         MenuBarExtra {
            
@@ -422,6 +421,9 @@ struct networkLightApp: App {
             let UploadComponents = output[UploadRange].components(separatedBy: " ")
             
             var Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
+            if Upload.unit == "Kbps" {
+                Upload.speed = (Upload.speed ?? 0.0)/1000
+            }
             if let speed = Upload.speed{
                 let ratio = speed/maxUpload*100
                 if ratio > 100{
@@ -444,14 +446,16 @@ struct networkLightApp: App {
             let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
             var Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
 
-            
+            if Download.unit == "Kbps" {
+                Download.speed = (Download.speed ?? 0.0)/1000
+            }
             
             if let speed = Download.speed{
                 let ratio = speed/maxDownload*100
                 if ratio > 100{
                     Download.icon = SpeedLimits.first?.icon.wrappedValue
                 }else{
-                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue ?? 0.0 > ratio && $0.lowerlimit.wrappedValue ?? 0.0 < ratio}
+                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
                     Download.icon = limit.first?.icon.wrappedValue
                     
                     if Download.icon == SpeedLimits.last?.icon.wrappedValue {
