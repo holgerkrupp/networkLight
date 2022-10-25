@@ -8,6 +8,7 @@
 import SwiftUI
 import CoreData
 import Foundation
+import Charts
 
 
 
@@ -17,6 +18,7 @@ struct HistoryView: View {
 
 
     @FetchRequest (
+        entity: ContentView_Previews.entity,
         sortDescriptors: [NSSortDescriptor(keyPath: \SpeedLog.date, ascending: false)],
         animation: .default
     ) var SpeedLogs: FetchedResults<SpeedLog>
@@ -26,8 +28,10 @@ struct HistoryView: View {
 //    @State var baseDownload = "1000"
 //    @State var baseUpload = "100"
 //
-    
+    //View definition
     @State var compact: Bool
+    @State private var viewType = 0
+    @State private var source = 0
     
     @State var limits: [SpeedLimit]? = nil
     @State var refresh: Bool = false
@@ -49,32 +53,80 @@ struct HistoryView: View {
                     }.frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }else{
-                Text("History").bold()
-                Table {
-                    TableColumn("Date") {speedlog in
-                        Text(speedlog.date?.formatted() ?? "--")
+                VStack{                    
+                    Picker("Display ", selection: $viewType) {
+                        Text("Table").tag(0)
+                        Text("Chart").tag(1)
                     }
-                    TableColumn("Upload") {speedlog in
-                        Text("\(String(format: "%.0f",speedlog.upload)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
-
-                    }.width(150)
-                    TableColumn("Download") {speedlog in
-                     
-                            Text("\(String(format: "%.0f",speedlog.download)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
-
-                    }.width(150)
-                } rows: {
-                    ForEach(SpeedLogs.prefix(30)){ speedlog in
-                        TableRow(speedlog)
+                    .pickerStyle(.segmented)
+                    .padding()
+                    
+                    if viewType == 0{
+                        Table {
+                            TableColumn("Date") {speedlog in
+                                Text(speedlog.date?.formatted() ?? "--")
+                            }
+                            TableColumn("Upload") {speedlog in
+                                Text("\(String(format: "%.0f",speedlog.upload)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
+                                
+                            }.width(150)
+                            TableColumn("Download") {speedlog in
+                                
+                                Text("\(String(format: "%.0f",speedlog.download)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
+                                
+                            }.width(150)
+                        } rows: {
+                            ForEach(SpeedLogs.prefix(30)){ speedlog in
+                                TableRow(speedlog)
+                            }
+                        }
+                        
+                    }else{
+                        VStack{
+                            Picker("", selection: $source) {
+                                Text("Download").tag(0)
+                                Text("Upload").tag(1)
+                            }
+                            .pickerStyle(.segmented)
+                            .padding()
+                            
+                            Chart{
+                                ForEach(SpeedLogs) { speedlog in
+                                    if source == 0{
+                                        PointMark(
+                                            x: .value("Date", speedlog.date ?? Date()),
+                                            y: .value("Download Speed", speedlog.download)
+                                        )
+                                    }else{
+                                        PointMark(
+                                            x: .value("Date", speedlog.date ?? Date()),
+                                            y: .value("Upload Speed", speedlog.upload)
+                                        )
+                                    }
+                                    
+                                }
+                            }.padding()
+                            
+                                .foregroundColor(Color.blue)
+                                .chartPlotStyle { plotContent in
+                                    plotContent
+                                        .background(.white.opacity(0.4))
+                                    
+                                }
+                        }
+                        
                     }
-                }.frame(width: 500, height: 400)
-                
-                Button("Export SpeedLogs"){
-                    ExportCSV()
-                }.keyboardShortcut("S")
-                Button("Delete SpeedLogs"){
-                    deleteall()
-                }
+                    
+                    
+                    Button("Export SpeedLogs"){
+                        ExportCSV()
+                    }.keyboardShortcut("S")
+                    Button("Delete SpeedLogs"){
+                        deleteall()
+                    }
+                }.padding()
+                    .frame(minWidth: 500, idealWidth: 500, maxWidth: .infinity, minHeight: 400, idealHeight: 400, maxHeight: .infinity, alignment: .center)
+
             }
 
 
@@ -168,7 +220,11 @@ private let itemFormatter: DateFormatter = {
 }()
 
 struct ContentView_Previews: PreviewProvider {
+    static var entity: NSEntityDescription {
+        return NSEntityDescription.entity(forEntityName: "SpeedLog", in: PersistenceController.preview.container.viewContext)!
+    }
     static var previews: some View {
         HistoryView(compact: false).environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }
+
