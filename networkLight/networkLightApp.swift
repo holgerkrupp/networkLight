@@ -123,8 +123,29 @@ struct networkLightApp: App {
     @State var timer:Timer? = nil
     @State var timerrunning:Bool = false
     
-    @State var maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
-    @State var maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
+    
+    
+    var maxDownload: Binding<Double> { Binding(
+        get: {
+            UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
+        },
+        set: {limit in
+            UserDefaults.standard.set(limit, forKey: "maxDownload")
+        }
+    )}
+    
+    var maxUpload: Binding<Double> { Binding(
+        get: {
+            UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
+        },
+        set: {limit in
+            UserDefaults.standard.set(limit, forKey: "maxUpload")
+        }
+    )}
+    
+    
+    
+    
 
     @State var repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600 {
         willSet{
@@ -146,15 +167,22 @@ struct networkLightApp: App {
                 Text("Warning").bold()
                 Text("For debugging purpose only")
                 Text("This App might slow down your Network traffic. Please verify with other users on your network the usage of this app.")
-//                Button("Understood") {
-//                    //NSApplication.shared.keyWindow?.close()
-//                    NSApplication.shared.mainWindow?.close()
-//                }
+                    
+                Button("Understood") {
+                    //NSApplication.shared.keyWindow?.close()
+                    NSApplication.shared.mainWindow?.close()
+                }
+                    
+            }.onAppear(){
+                NSApplication.shared.mainWindow?.close()
             }
-        }.handlesExternalEvents(matching: Set(arrayLiteral: "NetworkLight"))
+        }.defaultSize(width: 300, height: 200)
+            .handlesExternalEvents(matching: Set(arrayLiteral: "NetworkLight"))
+            
+        
         
             WindowGroup("Settings") {
-                SettingsView( SpeedLimits: SpeedLimits, repleattime: $repleattime)
+                SettingsView(maxUpload: maxUpload, maxDownload: maxDownload, SpeedLimits: SpeedLimits, repleattime: $repleattime)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
 //                    .frame(width: 500, height: 800)
 //                    .frame(minWidth: 250, maxWidth: .infinity,
@@ -352,10 +380,7 @@ struct networkLightApp: App {
 
 
     func readNetworkStatus() async{
-        
-        maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
-        maxUpload = UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
-        print("maxDownload: \(maxDownload.description) - maxUpload: \(maxUpload.description)")
+ 
         running = true
         do {
             try await networkquality()
@@ -421,7 +446,7 @@ struct networkLightApp: App {
             var Download = Speed(speed: Double(networkQualityData.dl_throughput/1000/1000), unit: "Mbps", date: now)
             
             if let speed = Upload.speed{
-                let ratio = speed/maxUpload*100
+                let ratio = speed/maxUpload.wrappedValue*100
                 if ratio > 100{
                     Upload.icon = SpeedLimits.first?.icon.wrappedValue
                 }else{
@@ -436,7 +461,7 @@ struct networkLightApp: App {
             Speeds.updateValue(Upload, forKey: "Upload")
             
             if let speed = Download.speed{
-                let ratio = speed/maxDownload*100
+                let ratio = speed/maxDownload.wrappedValue*100
                 if ratio > 100{
                     Download.icon = SpeedLimits.first?.icon.wrappedValue
                 }else{
@@ -501,7 +526,7 @@ struct networkLightApp: App {
                 Upload.speed = (Upload.speed ?? 0.0)/1000
             }
             if let speed = Upload.speed{
-                let ratio = speed/maxUpload*100
+                let ratio = speed/maxUpload.wrappedValue*100
                 if ratio > 100{
                     Upload.icon = SpeedLimits.first?.icon.wrappedValue
                 }else{
@@ -527,7 +552,7 @@ struct networkLightApp: App {
             }
             
             if let speed = Download.speed{
-                let ratio = speed/maxDownload*100
+                let ratio = speed/maxDownload.wrappedValue*100
                 if ratio > 100{
                     Download.icon = SpeedLimits.first?.icon.wrappedValue
                 }else{

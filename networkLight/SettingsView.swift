@@ -10,10 +10,10 @@ import UserNotifications
 
 struct SettingsView: View {
     
+
+    @Binding var maxUpload: Double
+    @Binding var maxDownload: Double
     
-    
-    @State var UploadSpeed = ""
-    @State var DownloadSpeed = ""
     @Binding var SpeedLimits : [SpeedLimit]
     @Binding var repleattime :Int
     
@@ -26,32 +26,16 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .center, spacing: 12){
             Text("Default Speeds").bold()
-                .onAppear(){
-                    
-                    if let maxUpload = UserDefaults.standard.object(forKey: "MaxUpload") as? Double{
-                        UploadSpeed = String(maxUpload)
-                    }
-                    if let maxDownload = UserDefaults.standard.object(forKey: "maxDownload") as? Double{
-                        DownloadSpeed = String(maxDownload)
-                    }
-                }
+
             HStack{
                 Text("Upload:")
-                TextField("Upload Speed", text: $UploadSpeed).frame(width: 60)
-                    .onSubmit {
-                        if let uploadFloat = Double($UploadSpeed.wrappedValue){
-                            UserDefaults.standard.setValue(uploadFloat, forKey: "maxUpload")
-                        }
-                    }
+                TextField("Upload Speed", value: $maxUpload, format: .number).frame(width: 60)
+
                 Text("Mbps")
                 Divider()
                 Text("Download:")
-                TextField("Download Speed", text: $DownloadSpeed).frame(width: 60)
-                    .onSubmit {
-                        if let downloadFloat = Double($DownloadSpeed.wrappedValue){
-                            UserDefaults.standard.setValue(downloadFloat, forKey: "maxDownload")
-                        }
-                    }
+                TextField("Download Speed", value: $maxDownload, format: .number).frame(width: 60)
+
                 Text("Mbps")
             }.frame(height: 20).padding()
                 
@@ -142,8 +126,20 @@ struct SettingsView_Previews: PreviewProvider {
         } set: { time in
             dump(time)
         }
+        
+        let maxDownload = Binding<Double>{
+            100.0
+        } set:{ speed in
+            dump(speed)
+        }
+        
+        let maxUpload = Binding<Double>{
+            20.0
+        } set:{ speed in
+            dump(speed)
+        }
 
-        SettingsView(SpeedLimits: Speedlimits, repleattime: repeattime )
+        SettingsView(maxUpload: maxUpload, maxDownload: maxDownload, SpeedLimits: Speedlimits, repleattime: repeattime)
         
     }
 }

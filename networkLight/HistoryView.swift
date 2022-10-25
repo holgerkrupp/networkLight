@@ -107,16 +107,35 @@ struct HistoryView: View {
                                 }
                             }.padding()
                             
-                                .foregroundColor(Color.blue)
+                                .foregroundColor(Color.accentColor)
                                 .chartPlotStyle { plotContent in
                                     plotContent
-                                        .background(.white.opacity(0.4))
+                                        .background(.background)
                                     
                                 }
                         }
+                
                         
                     }
                     
+//                    let first = Float(SpeedLogs.first?.date?.timeIntervalSince1970 ?? 0)
+//                    let last = Float(SpeedLogs.last?.date?.timeIntervalSince1970 ?? Date().timeIntervalSince1970)
+//
+//
+//                    let ViewModel = RangeSlider.ViewModel(sliderPosition: ClosedRange(uncheckedBounds: (first, last)), sliderBounds: ClosedRange(uncheckedBounds: (Int(first), Int(last))))
+//
+//                    RangeSlider(viewModel: ViewModel) { newRange in
+//
+//                        dump(SpeedLogs.first)
+//                        dump(SpeedLogs.last)
+//
+//                        print("slide")
+//                        print("old: \(Date(timeIntervalSince1970: TimeInterval(first)).formatted()) - \(Date(timeIntervalSince1970: TimeInterval(last)).formatted())")
+//
+//                        let newfirst = Date(timeIntervalSince1970: TimeInterval(newRange.lowerBound))
+//                        let newlast = Date(timeIntervalSince1970: TimeInterval(newRange.upperBound))
+//                        print("new Dates: \(newfirst.formatted()) until \(newlast.formatted())")
+//                    }
                     
                     Button("Export SpeedLogs"){
                         ExportCSV()
@@ -221,10 +240,10 @@ private let itemFormatter: DateFormatter = {
 
 struct ContentView_Previews: PreviewProvider {
     static var entity: NSEntityDescription {
-        return NSEntityDescription.entity(forEntityName: "SpeedLog", in: PersistenceController.preview.container.viewContext)!
+        return NSEntityDescription.entity(forEntityName: "SpeedLog", in: PersistenceController.shared.container.viewContext)!
     }
     static var previews: some View {
-        HistoryView(compact: false).environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        HistoryView(compact: false).environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
     }
 }
 

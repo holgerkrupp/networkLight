@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		483009C529081B99007C10EF /* RangeSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483009C429081B99007C10EF /* RangeSlider.swift */; };
 		483BCF9628EDFBD500568547 /* networkLightApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483BCF9528EDFBD500568547 /* networkLightApp.swift */; };
 		483BCF9828EDFBD500568547 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483BCF9728EDFBD500568547 /* HistoryView.swift */; };
 		483BCF9A28EDFBD700568547 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 483BCF9928EDFBD700568547 /* Assets.xcassets */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		483009C429081B99007C10EF /* RangeSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangeSlider.swift; sourceTree = "<group>"; };
 		483BCF9228EDFBD500568547 /* networkLight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = networkLight.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		483BCF9528EDFBD500568547 /* networkLightApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = networkLightApp.swift; sourceTree = "<group>"; };
 		483BCF9728EDFBD500568547 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
@@ -79,6 +81,7 @@
 				483BCFA028EDFBD700568547 /* networkLight.xcdatamodeld */,
 				483BCF9B28EDFBD700568547 /* Preview Content */,
 				48550A6028F013F3000733B9 /* supportfunctions.swift */,
+				483009C429081B99007C10EF /* RangeSlider.swift */,
 			);
 			path = networkLight;
 			sourceTree = "<group>";
@@ -166,6 +169,7 @@
 				483BCF9828EDFBD500568547 /* HistoryView.swift in Sources */,
 				483BCF9628EDFBD500568547 /* networkLightApp.swift in Sources */,
 				48550A8A28F3DCD6000733B9 /* SettingsView.swift in Sources */,
+				483009C529081B99007C10EF /* RangeSlider.swift in Sources */,
 				483BCFA228EDFBD700568547 /* networkLight.xcdatamodeld in Sources */,
 				48550A6128F013F3000733B9 /* supportfunctions.swift in Sources */,
 				488B8CBC28F97266004E72C0 /* network.swift in Sources */,
