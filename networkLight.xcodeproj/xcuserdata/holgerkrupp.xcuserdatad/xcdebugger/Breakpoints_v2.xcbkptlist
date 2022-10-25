@@ -14,9 +14,9 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "452"
-            endingLineNumber = "452"
-            landmarkName = "networkquality()"
+            startingLineNumber = "528"
+            endingLineNumber = "528"
+            landmarkName = "networkquality_old()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -30,9 +30,9 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "453"
-            endingLineNumber = "453"
-            landmarkName = "networkquality()"
+            startingLineNumber = "529"
+            endingLineNumber = "529"
+            landmarkName = "networkquality_old()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -46,9 +46,9 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "456"
-            endingLineNumber = "456"
-            landmarkName = "networkquality()"
+            startingLineNumber = "532"
+            endingLineNumber = "532"
+            landmarkName = "networkquality_old()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -62,9 +62,9 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "469"
-            endingLineNumber = "469"
-            landmarkName = "networkquality()"
+            startingLineNumber = "545"
+            endingLineNumber = "545"
+            landmarkName = "networkquality_old()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -78,9 +78,9 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "470"
-            endingLineNumber = "470"
-            landmarkName = "networkquality()"
+            startingLineNumber = "546"
+            endingLineNumber = "546"
+            landmarkName = "networkquality_old()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -94,10 +94,10 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "471"
-            endingLineNumber = "471"
-            landmarkName = "networkLightApp"
-            landmarkType = "14">
+            startingLineNumber = "547"
+            endingLineNumber = "547"
+            landmarkName = "networkquality_old()"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -126,8 +126,8 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "257"
-            endingLineNumber = "257"
+            startingLineNumber = "258"
+            endingLineNumber = "258"
             landmarkName = "body"
             landmarkType = "24">
          </BreakpointContent>
@@ -142,8 +142,8 @@
             filePath = "networkLight/networkLightApp.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "255"
-            endingLineNumber = "255"
+            startingLineNumber = "256"
+            endingLineNumber = "256"
             landmarkName = "body"
             landmarkType = "24">
          </BreakpointContent>

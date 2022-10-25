@@ -80,6 +80,7 @@ struct networkLightApp: App {
   //  @State var connected = MonitoringNetworkState()
 
     @State var Speeds = [String:Speed]()
+    @State var JSON: String?
     @State var running:Bool = false
     
     @State var shouldSendNotification:Bool = false
@@ -378,6 +379,9 @@ struct networkLightApp: App {
             if let date = Speeds["Upload"]?.date{
                 newSpeedLog.date = date
             }
+            if let json = JSON{
+                newSpeedLog.json = json
+            }
 
             do {
                 try viewContext.save()
@@ -391,6 +395,78 @@ struct networkLightApp: App {
     }
     
     private func networkquality() async throws{
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = nil
+        task.arguments = ["-c", "networkquality -c"]
+        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        task.standardInput = nil
+        
+        try task.run()
+        
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8)!
+        let decoder = JSONDecoder()
+        do{
+            let networkQualityData = try decoder.decode(networkQuality.self, from: output.data(using: .utf8) ?? Data())
+            NSLog("Data decode successfull")
+            print("Download: \(networkQualityData.dl_throughput/1000/1000) Mbps")
+            print("Upload: \(networkQualityData.ul_throughput/1000/1000) Mbps")
+            JSON = output
+            
+            let now = Date()
+            var Upload = Speed(speed: Double(networkQualityData.ul_throughput/1000/1000), unit: "Mbps", date: now)
+            var Download = Speed(speed: Double(networkQualityData.dl_throughput/1000/1000), unit: "Mbps", date: now)
+            
+            if let speed = Upload.speed{
+                let ratio = speed/maxUpload*100
+                if ratio > 100{
+                    Upload.icon = SpeedLimits.first?.icon.wrappedValue
+                }else{
+                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
+                    Upload.icon = limit.first?.icon.wrappedValue
+                    
+                    if Upload.icon == SpeedLimits.last?.icon.wrappedValue {
+                        shouldSendNotification = true
+                    }
+                }
+            }
+            Speeds.updateValue(Upload, forKey: "Upload")
+            
+            if let speed = Download.speed{
+                let ratio = speed/maxDownload*100
+                if ratio > 100{
+                    Download.icon = SpeedLimits.first?.icon.wrappedValue
+                }else{
+                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
+                    Download.icon = limit.first?.icon.wrappedValue
+                    
+                    if Download.icon == SpeedLimits.last?.icon.wrappedValue {
+                        shouldSendNotification = true
+                    }
+                }
+                
+                
+            }
+            Speeds.updateValue(Download, forKey: "Download")
+
+        }catch{
+            print("could not decode data")
+            print(error.localizedDescription)
+            print("---error--")
+            dump(error)
+            print("---data---")
+            dump(data)
+            print("---output--")
+            dump(output)
+        }
+        
+        
+    }
+    
+    private func networkquality_old() async throws{
         print("networkquality")
         // there is the option to use "networkquality -c" which creates machine readable output (JSON). Unfortunatly Mbps has to be calculated manually from the data provided and I don't know how to do that. Therefore I scrap the output of the human readable format until I found a solution.
         
@@ -471,7 +547,25 @@ struct networkLightApp: App {
 
     }
     
-    
+    struct networkQuality:Decodable{
+        var base_rtt:Double
+        var dl_flows:Int
+        var dl_throughput:Int
+        var end_date:String
+        var il_h2_req_resp:[Int]
+        var il_tcp_handshake_443:[Int]
+        var il_tls_handshake:[Int]
+        var interface_name:String
+        var lud_foreign_h2_req_resp:[Int]
+        var lud_foreign_tcp_handshake_443:[Int]
+        var lud_foreign_tls_handshake:[Int]
+        var lud_self_h2_req_resp:[Int]
+        var os_version:String
+        var responsiveness:Int
+        var start_date:String
+        var ul_flows:Int
+        var ul_throughput:Int
+    }
     
 
     
