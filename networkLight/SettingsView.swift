@@ -95,6 +95,10 @@ struct SettingsView: View {
 
         }
 
+        let
+    VersionNumber = "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "0") - (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0000"))"
+    Text(VersionNumber)
+        
     }
     
     func openSystemPrefs(){
