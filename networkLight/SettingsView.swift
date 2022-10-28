@@ -24,22 +24,10 @@ struct SettingsView: View {
     @FocusState private var focus: Int?
     
     var body: some View {
-        VStack(alignment: .center, spacing: 12){
-            Text("Default Speeds").bold()
+        VStack(){
+            
+        DefaultSpeedView
 
-            HStack{
-                Text("Upload:")
-                TextField("Upload Speed", value: $maxUpload, format: .number).frame(width: 60)
-
-                Text("Mbps")
-                Divider()
-                Text("Download:")
-                TextField("Download Speed", value: $maxDownload, format: .number).frame(width: 60)
-
-                Text("Mbps")
-            }.frame(height: 20).padding()
-                
-        }
             Divider()
         Text("Autorun").bold()
         VStack{
@@ -53,19 +41,7 @@ struct SettingsView: View {
             
         }
             Divider()
-                Text("Limits [%]").bold()
-       
-                ForEach($SpeedLimits) { $limit in
-                    
-                    HStack{
-                        
-                        TextField("upperlimit", value: $limit.upperlimit, format: .number).frame(width: 60)
-                        TextField("Icon", text: $limit.icon).multilineTextAlignment(.center).frame(width: 30)
-                        TextField("lowerlimit", value: $limit.lowerlimit, format: .number).frame(width: 60)
-                    }.padding().frame(width: 100, alignment: .center).onChange(of: $limit.wrappedValue) { newValue in
-                        self.refresh.toggle()
-                    }
-                }
+            SpeedLimitView
         Divider().onAppear(){
             getNotificationSettings()
         }
@@ -94,10 +70,13 @@ struct SettingsView: View {
             }
 
         }
-
-        let
-    VersionNumber = "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "0") - (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0000"))"
-    Text(VersionNumber)
+                    
+            let VersionNumber = "App Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "0") - (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0000"))"
+            Text(VersionNumber)
+                .frame(width: .infinity)
+                .multilineTextAlignment(.trailing)
+                .foregroundColor(.secondary)
+        }
         
     }
     
@@ -112,8 +91,49 @@ struct SettingsView: View {
             self.notificationSettings = settings
         }
     }
+    
+    var DefaultSpeedView: some View{
+        Group{
+            VStack(alignment: .center, spacing: 12){
+                Text("Default Speeds").bold()
+                
+                HStack{
+                    Text("Upload:")
+                    TextField("Upload Speed", value: $maxUpload, format: .number).frame(width: 60)
+                    
+                    Text("Mbps")
+                    Divider()
+                    Text("Download:")
+                    TextField("Download Speed", value: $maxDownload, format: .number).frame(width: 60)
+                    
+                    Text("Mbps")
+                }.frame(height: 20).padding()
+                
+            }
+        }
+    }
 
+    
+    var SpeedLimitView: some View{
+        Group{
+            Text("Limits [%]").bold()
+            
+            ForEach($SpeedLimits) { $limit in
+                
+                HStack{
+                    
+                    TextField("upperlimit", value: $limit.upperlimit, format: .number).frame(width: 60)
+                    TextField("Icon", text: $limit.icon).multilineTextAlignment(.center).frame(width: 30)
+                    TextField("lowerlimit", value: $limit.lowerlimit, format: .number).frame(width: 60)
+                }.padding().frame(width: 100, alignment: .center).onChange(of: $limit.wrappedValue) { newValue in
+                    self.refresh.toggle()
+                }
+            }
+        }
+    }
+    
 }
+
 
 
 struct SettingsView_Previews: PreviewProvider {
