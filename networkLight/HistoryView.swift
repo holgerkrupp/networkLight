@@ -69,12 +69,17 @@ struct HistoryView: View {
                             TableColumn("Upload") {speedlog in
                                 Text("\(String(format: "%.0f",speedlog.upload)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
                                 
-                            }.width(150)
+                            }.width(100)
                             TableColumn("Download") {speedlog in
                                 
                                 Text("\(String(format: "%.0f",speedlog.download)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
                                 
-                            }.width(150)
+                            }.width(100)
+                            TableColumn("Responsiveness") {speedlog in
+                                
+                                Text("\(String(format: "%d",speedlog.responsiveness))").frame(maxWidth: .infinity, alignment: .trailing)
+                                
+                            }.width(100)
                         } rows: {
                             ForEach(SpeedLogs.prefix(30)){ speedlog in
                                 TableRow(speedlog)
@@ -155,7 +160,7 @@ struct HistoryView: View {
     func ExportCSV(){
         
         
-        let headerString: String = "Date (IS8601), Date, Upload (Mbps), Download (Mbps)"
+        let headerString: String = "Date (IS8601), Date, Upload (Mbps), Download (Mbps), Responsiveness"
         
         
         var exportString: String = ""
@@ -164,7 +169,7 @@ struct HistoryView: View {
         
         for speedlog in SpeedLogs {
             
-            let exportLine = "\"\(speedlog.date?.ISO8601Format().description ?? "")\",\" \(speedlog.date?.formatted() ?? "")\", \(String(format: "%.0f",speedlog.upload)), \(String(format: "%.0f",speedlog.download))"
+            let exportLine = "\"\(speedlog.date?.ISO8601Format().description ?? "")\",\" \(speedlog.date?.formatted() ?? "")\", \(String(format: "%.0f",speedlog.upload)), \(String(format: "%.0f",speedlog.download)), \(String(format: "%d",speedlog.responsiveness))"
             
             
             exportString.append(exportLine)
