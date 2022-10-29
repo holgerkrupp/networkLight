@@ -16,6 +16,7 @@ struct Speed{
     var unit: String?
     var date: Date?
     var icon: String?
+    var responsiveness: Int?
 }
 struct SpeedLimit: Identifiable, Codable, Equatable{
 
@@ -404,6 +405,10 @@ struct networkLightApp: App {
             if let date = Speeds["Upload"]?.date{
                 newSpeedLog.date = date
             }
+            if let responsiveness = Speeds["Download"]?.responsiveness{
+                newSpeedLog.responsiveness = Int16(responsiveness)
+            }
+            
             if let json = JSON{
                 newSpeedLog.json = json
             }
@@ -443,7 +448,9 @@ struct networkLightApp: App {
             
             let now = Date()
             var Upload = Speed(speed: Double(networkQualityData.ul_throughput/1000/1000), unit: "Mbps", date: now)
-            var Download = Speed(speed: Double(networkQualityData.dl_throughput/1000/1000), unit: "Mbps", date: now)
+            var Download = Speed(speed: Double(networkQualityData.dl_throughput/1000/1000), unit: "Mbps", date: now, responsiveness: networkQualityData.responsiveness)
+            
+            
             
             if let speed = Upload.speed{
                 let ratio = speed/maxUpload.wrappedValue*100
