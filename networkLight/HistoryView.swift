@@ -80,6 +80,14 @@ struct HistoryView: View {
                                 Text("\(String(format: "%d",speedlog.responsiveness))").frame(maxWidth: .infinity, alignment: .trailing)
                                 
                             }.width(100)
+                            TableColumn("Delete"){ speedlog in
+                                Button("X"){
+                                    print("delete ")
+                                    if let index = SpeedLogs.firstIndex(of: speedlog){
+                                        delete(index: index)
+                                    }
+                                }
+                            }.width(20)
                         } rows: {
                             ForEach(SpeedLogs.prefix(30)){ speedlog in
                                 TableRow(speedlog)
@@ -192,6 +200,15 @@ struct HistoryView: View {
 
         }
         
+    
+    func delete(index: FetchedResults.Index){
+       viewContext.delete(SpeedLogs[index])
+        do {
+            try viewContext.save()
+        } catch {
+            // handle the Core Data error
+        }
+    }
     
     func deleteall(){
         let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "SpeedLog")
