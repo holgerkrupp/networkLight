@@ -73,9 +73,9 @@ struct SettingsView: View {
                     
             let VersionNumber = "App Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "0") - (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0000"))"
             Text(VersionNumber)
-                .frame(width: .infinity)
                 .multilineTextAlignment(.trailing)
                 .foregroundColor(.secondary)
+                .fontWeight(.ultraLight)
         }
         
     }

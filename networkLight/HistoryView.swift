@@ -30,8 +30,10 @@ struct HistoryView: View {
 //
     //View definition
     @State var compact: Bool
-    @State private var viewType = 0
-    @State private var source = 0
+
+    // Setting and Getting the View State (Charts vs Table, Download vs Upload)
+    @AppStorage("viewType") private var viewType = 0
+    @AppStorage("source") private var source = 0
     
     @State var limits: [SpeedLimit]? = nil
     @State var refresh: Bool = false
@@ -60,6 +62,8 @@ struct HistoryView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding()
+                    
+
                     
                     if viewType == 0{
                         Table {
