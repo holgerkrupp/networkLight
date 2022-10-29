@@ -24,11 +24,7 @@ struct HistoryView: View {
     ) var SpeedLogs: FetchedResults<SpeedLog>
 
     @State  var Speeds = [String:Speed]()
-//
-//    @State var baseDownload = "1000"
-//    @State var baseUpload = "100"
-//
-    //View definition
+
     @State var compact: Bool
 
     // Setting and Getting the View State (Charts vs Table, Download vs Upload)
