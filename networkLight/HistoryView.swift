@@ -81,12 +81,16 @@ struct HistoryView: View {
                                 
                             }.width(100)
                             TableColumn("Delete"){ speedlog in
-                                Button("X"){
+                                Button(role: .destructive, action: {
                                     print("delete ")
                                     if let index = SpeedLogs.firstIndex(of: speedlog){
                                         delete(index: index)
                                     }
+                                    
+                                }) {
+                                    Label("", systemImage: "trash")
                                 }
+                               
                             }.width(20)
                         } rows: {
                             ForEach(SpeedLogs.prefix(30)){ speedlog in
