@@ -168,8 +168,11 @@ struct HistoryView: View {
         exportString.append("\n")
         
         for speedlog in SpeedLogs {
+            let ExcelFormatStyle = DateFormatter()
+            ExcelFormatStyle.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            let formattedDate = ExcelFormatStyle.string(from: speedlog.date ?? Date())
             
-            let exportLine = "\"\(speedlog.date?.ISO8601Format().description ?? "")\",\" \(speedlog.date?.formatted() ?? "")\", \(String(format: "%.0f",speedlog.upload)), \(String(format: "%.0f",speedlog.download)), \(String(format: "%d",speedlog.responsiveness))"
+            let exportLine = "\"\(speedlog.date?.ISO8601Format().description ?? "")\",\" \(formattedDate)\", \(String(format: "%.0f",speedlog.upload)), \(String(format: "%.0f",speedlog.download)), \(String(format: "%d",speedlog.responsiveness))"
             
             
             exportString.append(exportLine)
