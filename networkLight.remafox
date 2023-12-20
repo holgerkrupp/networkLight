@@ -1,0 +1,74 @@
+{
+  "androidStringsFilesSearch" : {
+    "excludeSubPathsContaining" : [
+      ".build/",
+      ".git/",
+      ".idea/",
+      "build/",
+      "docs/",
+      "gradle/"
+    ],
+    "pathsToSearch" : [
+
+    ]
+  },
+  "appleStringsFilesConfig" : {
+    "emptyLinesBetweenKeys" : 1
+  },
+  "appleStringsFilesSearch" : {
+    "excludeSubPathsContaining" : [
+      ".build/",
+      ".git/",
+      "build/",
+      "Carthage/",
+      "docs/",
+      "Pods/"
+    ],
+    "pathsToSearch" : [
+
+    ]
+  },
+  "configFilePath" : "networkLight.remafox",
+  "id" : "68383209-EF2E-45FD-8768-DFDCE8DB86F0",
+  "interfaceBuilderFilesSearch" : {
+    "excludeSubPathsContaining" : [
+      ".build/",
+      ".git/",
+      "build/",
+      "Carthage/",
+      "docs/",
+      "Pods/"
+    ],
+    "pathsToSearch" : [
+
+    ]
+  },
+  "interfaceBuilderIgnoreTags" : [
+    "#remafox-ignore",
+    "#non-translatable"
+  ],
+  "lintTasks" : [
+    "duplicateKeys",
+    "emptyValues"
+  ],
+  "normalizeTasks" : [
+    "harmonizeWithSourceLanguage",
+    "sortByKeys"
+  ],
+  "projectName" : "networkLight",
+  "resourcesEnum" : {
+    "accessLevel" : "internal",
+    "bundleInstance" : "Bundle.main",
+    "enumName" : "Res",
+    "filePath" : "ReMafoX.swift",
+    "indent" : "    ",
+    "objectiveCCompatible" : false,
+    "stringsEnumName" : "Str",
+    "stringsTopLevelAlias" : "Loc",
+    "useSwiftPackagePreviewsWorkaround" : false,
+    "useTopLevelAliases" : true
+  },
+  "sourceLanguage" : "en",
+  "version" : 1,
+  "xcodeProjectPath" : "networkLight.xcodeproj"
+}

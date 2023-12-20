@@ -12,6 +12,8 @@ import Charts
 
 
 
+
+
 struct HistoryView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
@@ -62,7 +64,7 @@ struct HistoryView: View {
 
                     
                     if viewType == 0{
-                        Table {
+                        Table(of: SpeedLog.self){
                             TableColumn("Date") {speedlog in
                                 Text(speedlog.date?.formatted() ?? "--")
                             }
@@ -222,7 +224,7 @@ struct HistoryView: View {
             try viewContext.execute(deleteRequest)
             
             self.refresh.toggle()
-        } catch let error as NSError {
+        } catch _ as NSError {
             // TODO: handle the error
         }
     }

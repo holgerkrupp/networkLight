@@ -64,9 +64,7 @@ struct SpeedLimit: Identifiable, Codable, Equatable{
     }
     
     static func == (lhs: SpeedLimit, rhs: SpeedLimit) -> Bool {
-        return
-        lhs.upperlimit == rhs.upperlimit &&
-        lhs.lowerlimit == rhs.lowerlimit
+        return lhs.upperlimit == rhs.upperlimit && lhs.lowerlimit == rhs.lowerlimit
     }
 }
 
@@ -448,8 +446,8 @@ struct networkLightApp: App {
             
             let now = Date()
             var Upload = Speed(speed: Double(networkQualityData.ul_throughput/1000/1000), unit: "Mbps", date: now)
-            var Download = Speed(speed: Double(networkQualityData.dl_throughput/1000/1000), unit: "Mbps", date: now, responsiveness: networkQualityData.responsiveness)
-            
+            var Download = Speed(speed: Double(networkQualityData.dl_throughput/1000/1000), unit: "Mbps", date: now, responsiveness: Int(networkQualityData.responsiveness.rounded()))
+
             
             
             if let speed = Upload.speed{
@@ -593,7 +591,7 @@ struct networkLightApp: App {
         var lud_foreign_tls_handshake:[Int]
         var lud_self_h2_req_resp:[Int]
         var os_version:String
-        var responsiveness:Int
+        var responsiveness:Double
         var start_date:String
         var ul_flows:Int
         var ul_throughput:Int
