@@ -5,165 +5,245 @@
 //  Created by Holger Krupp on 10.10.22.
 //
 
+import AppKit
 import SwiftUI
 import UserNotifications
 
 struct SettingsView: View {
-    
+    @ObservedObject var monitor: NetworkMonitor
+    @State private var notificationSettings: UNNotificationSettings?
+    @State private var notificationError: String?
 
-    @Binding var maxUpload: Double
-    @Binding var maxDownload: Double
-    
-    @Binding var SpeedLimits : [SpeedLimit]
-    @Binding var repleattime :Int
-    
-    @State var notificationSettings: UNNotificationSettings?
-    
-    
-    @State var refresh: Bool = false
-    @FocusState private var focus: Int?
-    
     var body: some View {
-        VStack(){
-            
-        DefaultSpeedView
+        Form {
+            Section {
+                speedField(
+                    title: "Download",
+                    symbol: "arrow.down.circle.fill",
+                    value: $monitor.maxDownload
+                )
+                speedField(
+                    title: "Upload",
+                    symbol: "arrow.up.circle.fill",
+                    value: $monitor.maxUpload
+                )
+            } header: {
+                Text("Expected Speeds")
+            } footer: {
+                Text("NetworkLight compares each result with these speeds to choose its status color.")
+            }
 
-            Divider()
-        Text("Autorun").bold()
-        VStack{
-            HStack{
-                
-                Text("Autorun every ")
-                
-                TextField("Autorun", value: $repleattime, formatter: NumberFormatter()).frame(width: 60)
-                Text(" Seconds.")
-            }.padding()
-            
-        }
-            Divider()
-            SpeedLimitView
-        Divider().onAppear(){
-            getNotificationSettings()
-        }
-        Text("Notifications").bold()
+            Section {
+                Stepper(
+                    value: $monitor.repeatInterval,
+                    in: 60...86_400,
+                    step: 60
+                ) {
+                    LabeledContent("Test interval") {
+                        Text(formattedInterval(monitor.repeatInterval))
+                            .monospacedDigit()
+                    }
+                }
+            } header: {
+                Text("Automatic Testing")
+            } footer: {
+                Text("Automatic testing remains off after relaunch so NetworkLight never consumes bandwidth unexpectedly.")
+            }
 
-        if notificationSettings?.authorizationStatus != .authorized{
-            Button("Allow Notifications"){
-                if notificationSettings?.authorizationStatus == .denied{
-                    openSystemPrefs()
-                }else{
-                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { success, error in
-                        if success {
-                            print("All set!")
-                        } else if let error = error {
-                            print(error.localizedDescription)
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("From")
+                            .frame(width: 76, alignment: .leading)
+                        Text("To")
+                            .frame(width: 76, alignment: .leading)
+                        Text("Indicator")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    ForEach($monitor.speedLimits) { $limit in
+                        HStack {
+                            percentageField(value: $limit.lowerlimit)
+                            Image(systemName: "arrow.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                            percentageField(value: $limit.upperlimit)
+                            TextField("Indicator", text: $limit.icon)
+                                .labelsHidden()
+                                .multilineTextAlignment(.center)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 62)
+                                .accessibilityLabel("Status indicator")
+                        }
+                    }
+
+                    if monitor.hasInvalidSpeedLimits {
+                        Label(
+                            "Ranges must be contiguous, non-overlapping, and greater than zero.",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    }
+
+                    HStack {
+                        Spacer()
+                        Button("Restore Defaults") {
+                            monitor.resetSpeedLimits()
                         }
                     }
                 }
-   
-            }
-        }else{
-            
-            Button("Manage Notification Settings"){
-                
-                openSystemPrefs()
+            } header: {
+                Text("Status Ranges")
+            } footer: {
+                Text("Values are percentages of the expected upload or download speed. Boundary values use the better range.")
             }
 
-        }
-                    
-            let VersionNumber = "App Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "0") - (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0000"))"
-            Text(VersionNumber)
-                .multilineTextAlignment(.trailing)
-                .foregroundColor(.secondary)
-                .fontWeight(.ultraLight)
-        }
-        
-    }
-    
-    func openSystemPrefs(){
-        let prefsURL = URL(string: "x-apple.systempreferences:com.apple.preference.notifications?\(Bundle.main.bundleIdentifier ?? "")")!
-        print(prefsURL)
-        
-        NSWorkspace.shared.open(prefsURL)
-    }
-    func getNotificationSettings(){
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            self.notificationSettings = settings
-        }
-    }
-    
-    var DefaultSpeedView: some View{
-        Group{
-            VStack(alignment: .center, spacing: 12){
-                Text("Default Speeds").bold()
-                
-                HStack{
-                    Text("Upload:")
-                    TextField("Upload Speed", value: $maxUpload, format: .number).frame(width: 60)
-                    
-                    Text("Mbps")
-                    Divider()
-                    Text("Download:")
-                    TextField("Download Speed", value: $maxDownload, format: .number).frame(width: 60)
-                    
-                    Text("Mbps")
-                }.frame(height: 20).padding()
-                
-            }
-        }
-    }
+            Section("Notifications") {
+                LabeledContent("Permission") {
+                    Label(notificationStatusText, systemImage: notificationStatusSymbol)
+                        .foregroundStyle(notificationStatusColor)
+                }
 
-    
-    var SpeedLimitView: some View{
-        Group{
-            Text("Limits [%]").bold()
-            
-            ForEach($SpeedLimits) { $limit in
-                
-                HStack{
-                    
-                    TextField("upperlimit", value: $limit.upperlimit, format: .number).frame(width: 60)
-                    TextField("Icon", text: $limit.icon).multilineTextAlignment(.center).frame(width: 30)
-                    TextField("lowerlimit", value: $limit.lowerlimit, format: .number).frame(width: 60)
-                }.padding().frame(width: 100, alignment: .center).onChange(of: $limit.wrappedValue) { newValue in
-                    self.refresh.toggle()
+                if notificationSettings?.authorizationStatus == .denied {
+                    Button("Open Notification Settings") {
+                        openNotificationSettings()
+                    }
+                } else if notificationSettings?.authorizationStatus != .authorized {
+                    Button("Allow Low-Speed Notifications") {
+                        Task { await requestNotificationPermission() }
+                    }
+                } else {
+                    Button("Manage Notifications") {
+                        openNotificationSettings()
+                    }
+                }
+
+                if let notificationError {
+                    Text(notificationError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
                 }
             }
+
+            Section("About") {
+                LabeledContent("Version", value: versionText)
+                Link(
+                    "NetworkLight on GitHub",
+                    destination: URL(string: "https://github.com/holgerkrupp/networkLight")!
+                )
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 540)
+        .task { await refreshNotificationSettings() }
+    }
+
+    private func speedField(
+        title: String,
+        symbol: String,
+        value: Binding<Double>
+    ) -> some View {
+        LabeledContent {
+            HStack(spacing: 6) {
+                TextField(
+                    title,
+                    value: value,
+                    format: .number.precision(.fractionLength(0...1))
+                )
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 90)
+                Text("Mbps")
+                    .foregroundStyle(.secondary)
+            }
+        } label: {
+            Label(title, systemImage: symbol)
         }
     }
-    
+
+    private func percentageField(value: Binding<Double>) -> some View {
+        HStack(spacing: 3) {
+            TextField(
+                "Percent",
+                value: value,
+                format: .number.precision(.fractionLength(0...1))
+            )
+            .labelsHidden()
+            .multilineTextAlignment(.trailing)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 62)
+            Text("%")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var notificationStatusText: String {
+        switch notificationSettings?.authorizationStatus {
+        case .authorized: "Allowed"
+        case .denied: "Denied"
+        case .provisional: "Provisional"
+        case .notDetermined: "Not requested"
+        case .ephemeral: "Temporary"
+        case nil: "Checking…"
+        @unknown default: "Unknown"
+        }
+    }
+
+    private var notificationStatusSymbol: String {
+        switch notificationSettings?.authorizationStatus {
+        case .authorized, .provisional: "checkmark.circle.fill"
+        case .denied: "xmark.circle.fill"
+        default: "questionmark.circle"
+        }
+    }
+
+    private var notificationStatusColor: Color {
+        switch notificationSettings?.authorizationStatus {
+        case .authorized, .provisional: .green
+        case .denied: .red
+        default: .secondary
+        }
+    }
+
+    private var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        return "\(version) (\(build))"
+    }
+
+    private func refreshNotificationSettings() async {
+        notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
+    }
+
+    private func requestNotificationPermission() async {
+        do {
+            _ = try await UNUserNotificationCenter.current().requestAuthorization(
+                options: [.alert, .sound]
+            )
+            notificationError = nil
+            await refreshNotificationSettings()
+        } catch {
+            notificationError = error.localizedDescription
+        }
+    }
+
+    private func openNotificationSettings() {
+        guard let bundleID = Bundle.main.bundleIdentifier,
+              let url = URL(
+                string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(bundleID)"
+              ) else { return }
+        NSWorkspace.shared.open(url)
+    }
 }
 
-
-
-struct SettingsView_Previews: PreviewProvider {
-    static var previews: some View {
-        let Speedlimits = Binding<[SpeedLimit]> {
-            [SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
-            SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
-            SpeedLimit(upperlimit: 20.0,lowerlimit: 0.0,icon: "🔴")]
-        } set: { speed in
-            dump(speed)
-        }
-        let repeattime = Binding<Int> {
-            50
-        } set: { time in
-            dump(time)
-        }
-        
-        let maxDownload = Binding<Double>{
-            100.0
-        } set:{ speed in
-            dump(speed)
-        }
-        
-        let maxUpload = Binding<Double>{
-            20.0
-        } set:{ speed in
-            dump(speed)
-        }
-
-        SettingsView(maxUpload: maxUpload, maxDownload: maxDownload, SpeedLimits: Speedlimits, repleattime: repeattime)
-        
-    }
+#Preview {
+    SettingsView(
+        monitor: NetworkMonitor(
+            viewContext: PersistenceController.preview.container.viewContext,
+            defaults: UserDefaults(suiteName: "SettingsPreview")!
+        )
+    )
 }

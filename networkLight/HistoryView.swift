@@ -5,276 +5,358 @@
 //  Created by Holger Krupp on 05.10.22.
 //
 
-import SwiftUI
-import CoreData
-import Foundation
 import Charts
+import CoreData
+import SwiftUI
+import UniformTypeIdentifiers
 
+private enum HistoryPresentation: String, CaseIterable, Identifiable {
+    case table
+    case chart
 
+    var id: Self { self }
+    var title: String { rawValue.capitalized }
+}
 
+private enum HistoryMetric: String, CaseIterable, Identifiable {
+    case download
+    case upload
 
+    var id: Self { self }
+    var title: String { rawValue.capitalized }
+    var symbol: String { self == .download ? "arrow.down" : "arrow.up" }
+}
 
 struct HistoryView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
-
-
-    @FetchRequest (
-        entity: ContentView_Previews.entity,
+    @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \SpeedLog.date, ascending: false)],
         animation: .default
-    ) var SpeedLogs: FetchedResults<SpeedLog>
+    ) private var speedLogs: FetchedResults<SpeedLog>
 
-    @State  var Speeds = [String:Speed]()
+    let compact: Bool
 
-    @State var compact: Bool
-
-    // Setting and Getting the View State (Charts vs Table, Download vs Upload)
-    @AppStorage("viewType") private var viewType = 0
-    @AppStorage("source") private var source = 0
-    
-    @State var limits: [SpeedLimit]? = nil
-    @State var refresh: Bool = false
+    @AppStorage("history.presentation") private var presentation: HistoryPresentation = .table
+    @AppStorage("history.metric") private var metric: HistoryMetric = .download
+    @State private var isShowingDeleteConfirmation = false
+    @State private var isExporting = false
+    @State private var exportDocument = CSVDocument(text: "")
+    @State private var errorMessage: String?
 
     var body: some View {
-        VStack{
-            
-            
-            if compact{
-                ForEach(SpeedLogs.prefix(3)){ speedlog in
-                    Divider()
-                    
-                    Text(speedlog.date?.formatted() ?? "--").frame(maxWidth: .infinity, alignment: .center)
-                    
-                    VStack{
-                        Text("Upload: \(String(format: "%.0f",speedlog.upload)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
-                        Text("Download: \(String(format: "%.0f",speedlog.download)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
-
-                    }.frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            }else{
-                VStack{                    
-                    Picker("Display ", selection: $viewType) {
-                        Text("Table").tag(0)
-                        Text("Chart").tag(1)
-                    }
-                    .pickerStyle(.segmented)
-                    .padding()
-                    
-
-                    
-                    if viewType == 0{
-                        Table(of: SpeedLog.self){
-                            TableColumn("Date") {speedlog in
-                                Text(speedlog.date?.formatted() ?? "--")
-                            }
-                            TableColumn("Upload") {speedlog in
-                                Text("\(String(format: "%.0f",speedlog.upload)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
-                                
-                            }.width(100)
-                            TableColumn("Download") {speedlog in
-                                
-                                Text("\(String(format: "%.0f",speedlog.download)) Mbps").frame(maxWidth: .infinity, alignment: .trailing)
-                                
-                            }.width(100)
-                            TableColumn("Responsiveness") {speedlog in
-                                
-                                Text("\(String(format: "%d",speedlog.responsiveness))").frame(maxWidth: .infinity, alignment: .trailing)
-                                
-                            }.width(100)
-                            TableColumn("Delete"){ speedlog in
-                                Button(role: .destructive, action: {
-                                    print("delete ")
-                                    if let index = SpeedLogs.firstIndex(of: speedlog){
-                                        delete(index: index)
-                                    }
-                                    
-                                }) {
-                                    Label("", systemImage: "trash")
-                                }
-                               
-                            }.width(20)
-                        } rows: {
-                            ForEach(SpeedLogs.prefix(30)){ speedlog in
-                                TableRow(speedlog)
-                            }
-                        }
-                        
-                    }else{
-                        VStack{
-                            Picker("", selection: $source) {
-                                Text("Download").tag(0)
-                                Text("Upload").tag(1)
-                            }
-                            .pickerStyle(.segmented)
-                            .padding()
-                            
-                            Chart{
-                                ForEach(SpeedLogs) { speedlog in
-                                    if source == 0{
-                                        PointMark(
-                                            x: .value("Date", speedlog.date ?? Date()),
-                                            y: .value("Download Speed", speedlog.download)
-                                        )
-                                    }else{
-                                        PointMark(
-                                            x: .value("Date", speedlog.date ?? Date()),
-                                            y: .value("Upload Speed", speedlog.upload)
-                                        )
-                                    }
-                                    
-                                }
-                            }.padding()
-                            
-                                .foregroundColor(Color.accentColor)
-                                .chartPlotStyle { plotContent in
-                                    plotContent
-                                        .background(.background)
-                                    
-                                }
-                        }
-                
-                        
-                    }
-                    
-//                    let first = Float(SpeedLogs.first?.date?.timeIntervalSince1970 ?? 0)
-//                    let last = Float(SpeedLogs.last?.date?.timeIntervalSince1970 ?? Date().timeIntervalSince1970)
-//
-//
-//                    let ViewModel = RangeSlider.ViewModel(sliderPosition: ClosedRange(uncheckedBounds: (first, last)), sliderBounds: ClosedRange(uncheckedBounds: (Int(first), Int(last))))
-//
-//                    RangeSlider(viewModel: ViewModel) { newRange in
-//
-//                        dump(SpeedLogs.first)
-//                        dump(SpeedLogs.last)
-//
-//                        print("slide")
-//                        print("old: \(Date(timeIntervalSince1970: TimeInterval(first)).formatted()) - \(Date(timeIntervalSince1970: TimeInterval(last)).formatted())")
-//
-//                        let newfirst = Date(timeIntervalSince1970: TimeInterval(newRange.lowerBound))
-//                        let newlast = Date(timeIntervalSince1970: TimeInterval(newRange.upperBound))
-//                        print("new Dates: \(newfirst.formatted()) until \(newlast.formatted())")
-//                    }
-                    
-                    Button("Export SpeedLogs"){
-                        ExportCSV()
-                    }.keyboardShortcut("S")
-                    Button("Delete SpeedLogs"){
-                        deleteall()
-                    }
-                }.padding()
-                    .frame(minWidth: 500, idealWidth: 500, maxWidth: .infinity, minHeight: 400, idealHeight: 400, maxHeight: .infinity, alignment: .center)
-
+        Group {
+            if compact {
+                compactContent
+            } else {
+                fullContent
             }
-
-
+        }
+        .fileExporter(
+            isPresented: $isExporting,
+            document: exportDocument,
+            contentType: .commaSeparatedText,
+            defaultFilename: "NetworkLight Export"
+        ) { result in
+            if case let .failure(error) = result {
+                errorMessage = error.localizedDescription
+            }
+        }
+        .confirmationDialog(
+            "Delete all measurements?",
+            isPresented: $isShowingDeleteConfirmation
+        ) {
+            Button("Delete All", role: .destructive) { deleteAll() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes \(speedLogs.count) saved measurements.")
+        }
+        .alert(
+            "NetworkLight",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "An unknown error occurred.")
         }
     }
-    
-    func ExportCSV(){
-        
-        
-        let headerString: String = "Date (IS8601), Date, Upload (Mbps), Download (Mbps), Responsiveness"
-        
-        
-        var exportString: String = ""
-        exportString.append(headerString)
-        exportString.append("\n")
-        
-        for speedlog in SpeedLogs {
-            let ExcelFormatStyle = DateFormatter()
-            ExcelFormatStyle.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            let formattedDate = ExcelFormatStyle.string(from: speedlog.date ?? Date())
-            
-            let exportLine = "\"\(speedlog.date?.ISO8601Format().description ?? "")\",\" \(formattedDate)\", \(String(format: "%.0f",speedlog.upload)), \(String(format: "%.0f",speedlog.download)), \(String(format: "%d",speedlog.responsiveness))"
-            
-            
-            exportString.append(exportLine)
-            exportString.append("\n")
-            
-            
-        }
-        
-        if let saveURL = showSavePanel(){
-            do {
-                try exportString.write(to: saveURL, atomically: true, encoding: .utf8)
-            }catch{
-                print("error creating file")
 
+    private var compactContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Recent Tests")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(speedLogs.count) total")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if speedLogs.isEmpty {
+                Label("No measurements yet", systemImage: "chart.line.uptrend.xyaxis")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 42)
+            } else {
+                ForEach(speedLogs.prefix(3)) { log in
+                    HStack(spacing: 10) {
+                        Text(log.date?.formatted(date: .omitted, time: .shortened) ?? "—")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 56, alignment: .leading)
+                        Label(
+                            log.download.formatted(.number.precision(.fractionLength(0...1))),
+                            systemImage: "arrow.down"
+                        )
+                        Label(
+                            log.upload.formatted(.number.precision(.fractionLength(0...1))),
+                            systemImage: "arrow.up"
+                        )
+                        Spacer()
+                        Text("Mbps")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .font(.caption.monospacedDigit())
+                }
             }
         }
+    }
 
+    private var fullContent: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Connection History")
+                        .font(.title2.weight(.semibold))
+                    Text("Review and export your saved network quality measurements.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Picker("View", selection: $presentation) {
+                    ForEach(HistoryPresentation.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 180)
+            }
+            .padding()
+
+            Divider()
+
+            Group {
+                if speedLogs.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 34))
+                            .foregroundStyle(.secondary)
+                        Text("No Measurements")
+                            .font(.title3.weight(.semibold))
+                        Text("Run a speed test from the menu bar to start building your history.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if presentation == .table {
+                    historyTable
+                } else {
+                    historyChart
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+
+            HStack {
+                Text("\(speedLogs.count) measurement\(speedLogs.count == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Export…", systemImage: "square.and.arrow.up") {
+                    exportDocument = CSVDocument(text: makeCSV())
+                    isExporting = true
+                }
+                .disabled(speedLogs.isEmpty)
+                .keyboardShortcut("s")
+
+                Button("Delete All", systemImage: "trash", role: .destructive) {
+                    isShowingDeleteConfirmation = true
+                }
+                .disabled(speedLogs.isEmpty)
+            }
+            .padding()
         }
-        
-    
-    func delete(index: FetchedResults.Index){
-       viewContext.delete(SpeedLogs[index])
+        .frame(minWidth: 620, minHeight: 420)
+    }
+
+    private var historyTable: some View {
+        Table(of: SpeedLog.self) {
+            TableColumn("Date") { log in
+                Text(log.date?.formatted(date: .abbreviated, time: .standard) ?? "—")
+            }
+            .width(min: 150, ideal: 180)
+
+            TableColumn("Download") { log in
+                speedText(log.download)
+            }
+            .width(min: 100, ideal: 120)
+
+            TableColumn("Upload") { log in
+                speedText(log.upload)
+            }
+            .width(min: 100, ideal: 120)
+
+            TableColumn("Responsiveness") { log in
+                Text("\(log.responsiveness) RPM")
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .width(min: 110, ideal: 130)
+
+            TableColumn("") { log in
+                Button("Delete", systemImage: "trash", role: .destructive) {
+                    delete(log)
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .help("Delete this measurement")
+            }
+            .width(32)
+        } rows: {
+            ForEach(speedLogs) { log in
+                TableRow(log)
+            }
+        }
+    }
+
+    private var historyChart: some View {
+        VStack(spacing: 0) {
+            Picker("Metric", selection: $metric) {
+                ForEach(HistoryMetric.allCases) { option in
+                    Label(option.title, systemImage: option.symbol).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 220)
+            .padding()
+
+            Chart(Array(speedLogs.reversed())) { log in
+                if let date = log.date {
+                    LineMark(
+                        x: .value("Date", date),
+                        y: .value("Mbps", value(for: log))
+                    )
+                    .interpolationMethod(.catmullRom)
+
+                    PointMark(
+                        x: .value("Date", date),
+                        y: .value("Mbps", value(for: log))
+                    )
+                    .symbolSize(22)
+                }
+            }
+            .foregroundStyle(.tint)
+            .chartYAxisLabel("Mbps")
+            .chartYScale(domain: 0...chartMaximum)
+            .padding([.horizontal, .bottom])
+        }
+    }
+
+    private var chartMaximum: Double {
+        let maximum = speedLogs.map(value(for:)).max() ?? 0
+        return max(maximum * 1.1, 10)
+    }
+
+    private func value(for log: SpeedLog) -> Double {
+        metric == .download ? log.download : log.upload
+    }
+
+    private func speedText(_ value: Double) -> some View {
+        Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) Mbps")
+            .monospacedDigit()
+            .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private func delete(_ log: SpeedLog) {
+        viewContext.delete(log)
         do {
             try viewContext.save()
         } catch {
-            // handle the Core Data error
+            viewContext.rollback()
+            errorMessage = error.localizedDescription
         }
     }
-    
-    func deleteall(){
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "SpeedLog")
-        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        
+
+    private func deleteAll() {
         do {
-            try viewContext.execute(deleteRequest)
-            
-            self.refresh.toggle()
-        } catch _ as NSError {
-            // TODO: handle the error
+            if viewContext.hasChanges { try viewContext.save() }
+
+            let request = NSBatchDeleteRequest(
+                fetchRequest: NSFetchRequest<NSFetchRequestResult>(entityName: "SpeedLog")
+            )
+            request.resultType = .resultTypeObjectIDs
+            let result = try viewContext.execute(request) as? NSBatchDeleteResult
+            let objectIDs = result?.result as? [NSManagedObjectID] ?? []
+            NSManagedObjectContext.mergeChanges(
+                fromRemoteContextSave: [NSDeletedObjectsKey: objectIDs],
+                into: [viewContext]
+            )
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
-    
-    func showSavePanel() -> URL? {
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.commaSeparatedText]
-        savePanel.canCreateDirectories = true
-        savePanel.isExtensionHidden = false
-        savePanel.allowsOtherFileTypes = false
-        savePanel.title = "Save your data"
-        savePanel.message = "Choose a folder and a name to store your results."
-        savePanel.nameFieldLabel = "File name:"
-        savePanel.nameFieldStringValue = "NetworkLightExport.csv"
-        
-        let response = savePanel.runModal()
-        return response == .OK ? savePanel.url : nil
+
+    private func makeCSV() -> String {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let locale = Locale(identifier: "en_US_POSIX")
+
+        var lines = ["Date (ISO 8601),Upload (Mbps),Download (Mbps),Responsiveness (RPM)"]
+        lines.append(contentsOf: speedLogs.map { log in
+            let date = log.date.map(isoFormatter.string(from:)) ?? ""
+            let upload = String(format: "%.2f", locale: locale, log.upload)
+            let download = String(format: "%.2f", locale: locale, log.download)
+            return "\(csvField(date)),\(upload),\(download),\(log.responsiveness)"
+        })
+        return lines.joined(separator: "\r\n") + "\r\n"
     }
 
-
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { SpeedLogs[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
+    private func csvField(_ value: String) -> String {
+        "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
+private struct CSVDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
+    var text: String
 
-struct ContentView_Previews: PreviewProvider {
-    static var entity: NSEntityDescription {
-        return NSEntityDescription.entity(forEntityName: "SpeedLog", in: PersistenceController.shared.container.viewContext)!
+    init(text: String) {
+        self.text = text
     }
-    static var previews: some View {
-        HistoryView(compact: false).environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents,
+              let text = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.text = text
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: Data(text.utf8))
     }
 }
 
+#Preview {
+    HistoryView(compact: false)
+        .environment(
+            \.managedObjectContext,
+            PersistenceController.preview.container.viewContext
+        )
+}

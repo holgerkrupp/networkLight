@@ -5,600 +5,617 @@
 //  Created by Holger Krupp on 05.10.22.
 //
 
-import SwiftUI
+import AppKit
 import CoreData
+import SwiftUI
 import UserNotifications
 
-
-struct Speed{
-    var id = UUID()
-    var speed: Double?
-    var unit: String?
-    var date: Date?
-    var icon: String?
-    var responsiveness: Int?
+struct Speed: Identifiable {
+    let id = UUID()
+    let speed: Double
+    let unit: String
+    let date: Date
+    let icon: String
+    let responsiveness: Int?
 }
-struct SpeedLimit: Identifiable, Codable, Equatable{
 
-    
+struct SpeedLimit: Identifiable, Codable, Equatable {
     var upperlimit: Double
     var lowerlimit: Double
     var icon: String
     var id: UUID
-    
-    enum CodingKeys: CodingKey{
-        case upperlimit, lowerlimit, icon, id
-    }
-    
-    init(upperlimit: Double, lowerlimit: Double, icon: String){
+
+    init(upperlimit: Double, lowerlimit: Double, icon: String, id: UUID = UUID()) {
         self.upperlimit = upperlimit
         self.lowerlimit = lowerlimit
         self.icon = icon
-        self.id = UUID()
+        self.id = id
     }
-    
+
+    enum CodingKeys: CodingKey {
+        case upperlimit, lowerlimit, icon, id
+    }
+
     init(from decoder: Decoder) throws {
-        if let container = try? decoder.container(keyedBy: CodingKeys.self){
-            self.upperlimit = try! container.decode(Double.self, forKey: .upperlimit)
-            self.lowerlimit = try! container.decode(Double.self, forKey: .lowerlimit)
-            self.icon = try! container.decode(String.self, forKey: .icon)
-            do{
-                self.id = try container.decode(UUID.self, forKey: .id)
-            }catch{
-                self.id = UUID()
-            }
-        }else{
-            self.upperlimit = 0
-            self.lowerlimit = 0
-            self.icon = "🟣"
-            self.id = UUID()
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        upperlimit = try container.decode(Double.self, forKey: .upperlimit)
+        lowerlimit = try container.decode(Double.self, forKey: .lowerlimit)
+        icon = try container.decode(String.self, forKey: .icon)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+    }
+}
+
+@MainActor
+final class NetworkMonitor: ObservableObject {
+    static let defaultLimits = [
+        SpeedLimit(upperlimit: 100, lowerlimit: 70, icon: "🟢"),
+        SpeedLimit(upperlimit: 70, lowerlimit: 20, icon: "🟡"),
+        SpeedLimit(upperlimit: 20, lowerlimit: 0, icon: "🔴")
+    ]
+
+    @Published private(set) var speeds: [String: Speed] = [:]
+    @Published private(set) var isRunning = false
+    @Published private(set) var isAutoRunEnabled = false
+    @Published private(set) var nextRunDate: Date?
+    @Published private(set) var lastError: String?
+
+    @Published var maxDownload: Double {
+        didSet {
+            if !maxDownload.isFinite || maxDownload <= 0 { maxDownload = oldValue }
+            defaults.set(maxDownload, forKey: Keys.maxDownload)
         }
     }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(upperlimit, forKey: .upperlimit)
-        try container.encode(lowerlimit, forKey: .lowerlimit)
-        try container.encode(icon, forKey: .icon)
-        try container.encode(id, forKey: .id)
+
+    @Published var maxUpload: Double {
+        didSet {
+            if !maxUpload.isFinite || maxUpload <= 0 { maxUpload = oldValue }
+            defaults.set(maxUpload, forKey: Keys.maxUpload)
+        }
     }
-    
-    static func == (lhs: SpeedLimit, rhs: SpeedLimit) -> Bool {
-        return lhs.upperlimit == rhs.upperlimit && lhs.lowerlimit == rhs.lowerlimit
+
+    @Published var repeatInterval: Int {
+        didSet {
+            let validValue = min(max(repeatInterval, 60), 86_400)
+            if repeatInterval != validValue {
+                repeatInterval = validValue
+                return
+            }
+            defaults.set(repeatInterval, forKey: Keys.repeatInterval)
+            if isAutoRunEnabled { scheduleNextRun() }
+        }
+    }
+
+    @Published var speedLimits: [SpeedLimit] {
+        didSet { saveSpeedLimits() }
+    }
+
+    var download: Speed? { speeds["Download"] }
+    var upload: Speed? { speeds["Upload"] }
+    var lastRunDate: Date? { download?.date ?? upload?.date }
+
+    var hasInvalidSpeedLimits: Bool {
+        let ordered = speedLimits.sorted { $0.lowerlimit < $1.lowerlimit }
+        guard !ordered.isEmpty else { return true }
+        guard ordered.allSatisfy({
+            $0.lowerlimit.isFinite && $0.upperlimit.isFinite &&
+            $0.lowerlimit >= 0 && $0.upperlimit > $0.lowerlimit &&
+            !$0.icon.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) else { return true }
+
+        return zip(ordered, ordered.dropFirst()).contains {
+            abs($0.upperlimit - $1.lowerlimit) > 0.001
+        }
+    }
+
+    private enum Keys {
+        static let maxDownload = "maxDownload"
+        static let maxUpload = "maxUpload"
+        // Keep the original key so existing installations retain their interval.
+        static let repeatInterval = "repleattime"
+        static let speedLimits = "SpeedLimits"
+    }
+
+    private let defaults: UserDefaults
+    private let viewContext: NSManagedObjectContext
+    private var timer: Timer?
+    private var wakeObserver: NSObjectProtocol?
+
+    init(
+        viewContext: NSManagedObjectContext,
+        defaults: UserDefaults = .standard
+    ) {
+        self.viewContext = viewContext
+        self.defaults = defaults
+
+        let storedDownload = defaults.object(forKey: Keys.maxDownload) as? Double
+        maxDownload = storedDownload.flatMap { $0 > 0 ? $0 : nil } ?? 100
+
+        let storedUpload = defaults.object(forKey: Keys.maxUpload) as? Double
+        maxUpload = storedUpload.flatMap { $0 > 0 ? $0 : nil } ?? 20
+
+        let storedInterval = defaults.object(forKey: Keys.repeatInterval) as? Int ?? 600
+        repeatInterval = min(max(storedInterval, 60), 86_400)
+
+        if let data = defaults.data(forKey: Keys.speedLimits),
+           let decoded = try? JSONDecoder().decode([SpeedLimit].self, from: data),
+           !decoded.isEmpty {
+            speedLimits = decoded
+        } else {
+            speedLimits = Self.defaultLimits
+        }
+
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isAutoRunEnabled else { return }
+                self.timer?.invalidate()
+                self.timer = nil
+                self.nextRunDate = nil
+                await self.runTest()
+                self.scheduleNextRun()
+            }
+        }
+    }
+
+    deinit {
+        timer?.invalidate()
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+        }
+    }
+
+    func runTest() async {
+        guard !isRunning else { return }
+        isRunning = true
+        lastError = nil
+        defer { isRunning = false }
+
+        do {
+            let output = try await NetworkQualityRunner.run()
+            let result = try JSONDecoder().decode(
+                NetworkQualityResult.self,
+                from: Data(output.utf8)
+            )
+
+            let downloadSpeed = result.dlThroughput / 1_000_000
+            let uploadSpeed = result.ulThroughput / 1_000_000
+            guard downloadSpeed.isFinite, uploadSpeed.isFinite,
+                  downloadSpeed >= 0, uploadSpeed >= 0 else {
+                throw NetworkQualityError.invalidResponse
+            }
+
+            let now = Date()
+            let uploadStatus = status(for: uploadSpeed, expected: maxUpload)
+            let downloadStatus = status(for: downloadSpeed, expected: maxDownload)
+
+            let upload = Speed(
+                speed: uploadSpeed,
+                unit: "Mbps",
+                date: now,
+                icon: uploadStatus.icon,
+                responsiveness: nil
+            )
+            let download = Speed(
+                speed: downloadSpeed,
+                unit: "Mbps",
+                date: now,
+                icon: downloadStatus.icon,
+                responsiveness: Int(result.responsiveness.rounded())
+            )
+
+            speeds = ["Upload": upload, "Download": download]
+            try save(download: download, upload: upload, rawJSON: output)
+
+            let lowestLimitID = speedLimits.min(by: { $0.lowerlimit < $1.lowerlimit })?.id
+            if uploadStatus.id == lowestLimitID || downloadStatus.id == lowestLimitID {
+                await sendLowSpeedNotification(download: download, upload: upload)
+            }
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func setAutoRunEnabled(_ enabled: Bool) {
+        guard enabled != isAutoRunEnabled else { return }
+        isAutoRunEnabled = enabled
+
+        if enabled {
+            scheduleNextRun()
+            Task { await runTest() }
+        } else {
+            timer?.invalidate()
+            timer = nil
+            nextRunDate = nil
+        }
+    }
+
+    func resetSpeedLimits() {
+        speedLimits = Self.defaultLimits
+    }
+
+    private func scheduleNextRun() {
+        timer?.invalidate()
+        guard isAutoRunEnabled else {
+            nextRunDate = nil
+            return
+        }
+
+        let interval = TimeInterval(repeatInterval)
+        nextRunDate = Date().addingTimeInterval(interval)
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isAutoRunEnabled else { return }
+                await self.runTest()
+                self.scheduleNextRun()
+            }
+        }
+    }
+
+    private func status(for speed: Double, expected: Double) -> SpeedLimit {
+        let percentage = speed / max(expected, 0.01) * 100
+        let ordered = speedLimits.sorted { $0.lowerlimit > $1.lowerlimit }
+        guard let first = ordered.first else {
+            return Self.defaultLimits[1]
+        }
+
+        if percentage >= first.lowerlimit { return first }
+        return ordered.first(where: {
+            percentage >= $0.lowerlimit && percentage < $0.upperlimit
+        }) ?? ordered.last ?? first
+    }
+
+    private func save(download: Speed, upload: Speed, rawJSON: String) throws {
+        let log = SpeedLog(context: viewContext)
+        log.download = download.speed
+        log.upload = upload.speed
+        log.date = download.date
+        log.responsiveness = Int16(clamping: download.responsiveness ?? 0)
+        log.json = rawJSON
+        do {
+            try viewContext.save()
+        } catch {
+            viewContext.rollback()
+            throw error
+        }
+    }
+
+    private func saveSpeedLimits() {
+        guard let data = try? JSONEncoder().encode(speedLimits) else { return }
+        defaults.set(data, forKey: Keys.speedLimits)
+    }
+
+    private func sendLowSpeedNotification(download: Speed, upload: Speed) async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .authorized ||
+                settings.authorizationStatus == .provisional else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Network speed is below your target"
+        content.subtitle = download.date.formatted(date: .abbreviated, time: .shortened)
+        content.body = String(
+            format: "Upload: %@ %.1f Mbps\nDownload: %@ %.1f Mbps",
+            upload.icon,
+            upload.speed,
+            download.icon,
+            download.speed
+        )
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "networkLight.lowSpeed.\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+        try? await center.add(request)
+    }
+}
+
+private struct NetworkQualityResult: Decodable {
+    let downloadThroughput: Double
+    let uploadThroughput: Double
+    let responsiveness: Double
+
+    enum CodingKeys: String, CodingKey {
+        case downloadThroughput = "dl_throughput"
+        case uploadThroughput = "ul_throughput"
+        case responsiveness
+    }
+
+    var dlThroughput: Double { downloadThroughput }
+    var ulThroughput: Double { uploadThroughput }
+}
+
+private enum NetworkQualityError: LocalizedError {
+    case failed(status: Int32, message: String)
+    case invalidOutput
+    case invalidResponse
+
+    var errorDescription: String? {
+        switch self {
+        case let .failed(status, message):
+            return message.isEmpty
+                ? "The network quality test failed (exit code \(status))."
+                : message
+        case .invalidOutput:
+            return "The network quality test returned unreadable output."
+        case .invalidResponse:
+            return "The network quality test returned invalid measurements."
+        }
+    }
+}
+
+private enum NetworkQualityRunner {
+    static func run() async throws -> String {
+        try await Task.detached(priority: .userInitiated) {
+            let process = Process()
+            let outputPipe = Pipe()
+            let errorPipe = Pipe()
+
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/networkquality")
+            process.arguments = ["-c", "-M", "60"]
+            process.standardOutput = outputPipe
+            process.standardError = errorPipe
+
+            try process.run()
+            let outputReader = Task.detached {
+                outputPipe.fileHandleForReading.readDataToEndOfFile()
+            }
+            let errorReader = Task.detached {
+                errorPipe.fileHandleForReading.readDataToEndOfFile()
+            }
+            process.waitUntilExit()
+
+            let outputData = await outputReader.value
+            let errorData = await errorReader.value
+            let errorMessage = String(data: errorData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            guard process.terminationStatus == 0 else {
+                throw NetworkQualityError.failed(
+                    status: process.terminationStatus,
+                    message: errorMessage
+                )
+            }
+            guard let output = String(data: outputData, encoding: .utf8),
+                  !output.isEmpty else {
+                throw NetworkQualityError.invalidOutput
+            }
+            return output
+        }.value
     }
 }
 
 @main
-
-struct networkLightApp: App {
-
-    
-    let persistenceController = PersistenceController.shared
-    let viewContext = PersistenceController.shared.container.viewContext
-    
-  //  @State var connected = MonitoringNetworkState()
-
-    @State var Speeds = [String:Speed]()
-    @State var JSON: String?
-    @State var running:Bool = false
-    
-    @State var shouldSendNotification:Bool = false
-    
-   var SpeedLimits: Binding<[SpeedLimit]> { Binding(
-        get: {if let limits = UserDefaults.standard.object(forKey: "SpeedLimits"){
-            
-
-            do {
-                let decoded =  try JSONDecoder().decode([SpeedLimit].self, from: limits as! Data)
-                return decoded
-            }catch{
-                print("could not decode Speedlimits")
-            }
-        }
-            return  [
-                SpeedLimit(upperlimit: 100.0,lowerlimit: 70.0,icon: "🟢"),
-                SpeedLimit(upperlimit: 70.0,lowerlimit: 20.0,icon: "🟡"),
-                SpeedLimit(upperlimit: 20.0,lowerlimit: 0.0,icon: "🔴")
-            ]
-        
-            
-        },
-        set: {limits in
-
-            
-            do{
-                let JSON = try JSONEncoder().encode(limits)
-                UserDefaults.standard.set(JSON, forKey: "SpeedLimits")
-                
-            }catch{
-                print("could not save Speedlimits to UserDefaults")
-            }
-        }
+struct NetworkLightApp: App {
+    private let persistenceController = PersistenceController.shared
+    @StateObject private var monitor = NetworkMonitor(
+        viewContext: PersistenceController.shared.container.viewContext
     )
-        
-    }
-    
-    
-    @State var timer:Timer? = nil
-    @State var timerrunning:Bool = false
-    
-    
-    
-    var maxDownload: Binding<Double> { Binding(
-        get: {
-            UserDefaults.standard.object(forKey: "maxDownload") as? Double ?? 100.0
-        },
-        set: {limit in
-            UserDefaults.standard.set(limit, forKey: "maxDownload")
-        }
-    )}
-    
-    var maxUpload: Binding<Double> { Binding(
-        get: {
-            UserDefaults.standard.object(forKey: "maxUpload") as? Double ?? 20.0
-        },
-        set: {limit in
-            UserDefaults.standard.set(limit, forKey: "maxUpload")
-        }
-    )}
-    
-    
-    
-    
 
-    @State var repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600 {
-        willSet{
-            UserDefaults.standard.set(repleattime, forKey: "repleattime")
-        }
-    }
-
-    var maxSpeeds:[String:Speed] = [
-        "Download":Speed(id: UUID(), speed: 100, unit: "Mbps", date: Date(), icon: nil),
-        "Upload":Speed(id: UUID(), speed: 30, unit: "Mbps", date: Date(), icon: nil)
-    ]
-    
- 
-    
     var body: some Scene {
-   
-        WindowGroup("NetworkLight") {
-            VStack{
-                Text("Warning").bold()
-                Text("For debugging purpose only")
-                Text("This App might slow down your Network traffic. Please verify with other users on your network the usage of this app.")
-                    
-                Button("Understood") {
-                    //NSApplication.shared.keyWindow?.close()
-                    NSApplication.shared.mainWindow?.close()
-                }
-                    
-            }.onAppear(){
-                NSApplication.shared.mainWindow?.close()
-            }
-        }.defaultSize(width: 300, height: 200)
-            .handlesExternalEvents(matching: Set(arrayLiteral: "NetworkLight"))
-            
-        
-        
-            WindowGroup("Settings") {
-                SettingsView(maxUpload: maxUpload, maxDownload: maxDownload, SpeedLimits: SpeedLimits, repleattime: $repleattime)
-                    .environment(\.managedObjectContext, persistenceController.container.viewContext)
-//                    .frame(width: 500, height: 800)
-//                    .frame(minWidth: 250, maxWidth: .infinity,
-//                           minHeight: 600, maxHeight: .infinity)
-
-            }
-            .defaultSize(width: 400, height: 600)
-            .handlesExternalEvents(matching: Set(arrayLiteral: "SettingsWindow"))
-            
-        
-        WindowGroup("History") {
-            HistoryView(compact: false)
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-
-        }.defaultSize(width: 500, height: 600)
-        .handlesExternalEvents(matching: Set(arrayLiteral: "HistoryWindow"))
-        
         MenuBarExtra {
-           
-         //   Text(connected.isConnected ? "connected" : "no connection")
-            
-            Group{
-              
-                if let upload = Speeds["Upload"]{
-                    if let speed =  upload.speed{
-                        Text("\(upload.icon ?? "") Upload: \(String(format: "%.0f",speed)) \(upload.unit ?? "Mbps")")
-                        
-                    }
-                }
-                if let download = Speeds["Download"]{
-                    if let speed =  download.speed{
-                        Text("\(download.icon ?? "") Download: \(String(format: "%.0f",speed)) \(download.unit ?? "Mbps")")
-                        Text("Last Test: \(download.date?.formatted() ?? "unknown")")
-                    }
-                }
-                Divider()
-            }
-            if running == false {
-                Button("Run Now") {
-                    Task{
-                        await readNetworkStatus()
-                    }
-                }.keyboardShortcut("N")
-            }else{
-                Text("running")
-            }
-            
-            if (timerrunning == true){
-                let nextrun = timer?.fireDate.formatted(date: .omitted, time: .shortened)
-                Button("Stop autorun - next: \(nextrun ?? "-")"){
-                    stopTimer()
-                }
-            }else{
-                
-                Button("Autorun every \(String(repleattime/60)) Minutes"){
-                    startTimer()
-                    setSleepTimerRestart()
-                }
-                
-            }
-      
+            MenuBarPanel(monitor: monitor)
+                .environment(
+                    \.managedObjectContext,
+                    persistenceController.container.viewContext
+                )
+        } label: {
+            Text(monitor.isRunning ? "◌" : monitor.download?.icon ?? "○")
+                .accessibilityLabel("NetworkLight")
+        }
+        .menuBarExtraStyle(.window)
 
-            
-            Button("Settings") {
-                OpenWindows.Settingsview.open()
-            }.keyboardShortcut(",")
-            
-            Button("History") {
-                OpenWindows.Historyview.open()
-            }.keyboardShortcut("H")
-            
-            HistoryView(compact: true)
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-            
-            
-            
-            
-            
-            
+        historyWindow
+        settingsWindow
+    }
+
+    private var historyWindow: some Scene {
+        WindowGroup("History", id: "history") {
+            HistoryView(compact: false)
+                .environment(
+                    \.managedObjectContext,
+                    persistenceController.container.viewContext
+                )
+        }
+        .defaultSize(width: 760, height: 560)
+        .handlesExternalEvents(matching: ["history"])
+    }
+
+    private var settingsWindow: some Scene {
+        WindowGroup("NetworkLight Settings", id: "settings") {
+            SettingsView(monitor: monitor)
+        }
+        .defaultSize(width: 540, height: 620)
+        .windowResizability(.contentSize)
+        .handlesExternalEvents(matching: ["settings"])
+    }
+}
+
+private struct MenuBarPanel: View {
+    @ObservedObject var monitor: NetworkMonitor
+    @Environment(\.openWindow) private var openWindow
+
+    private var autoRunBinding: Binding<Bool> {
+        Binding(
+            get: { monitor.isAutoRunEnabled },
+            set: { monitor.setAutoRunEnabled($0) }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "network")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("NetworkLight")
+                        .font(.headline)
+                    Text(statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if monitor.isRunning {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+
+            HStack(spacing: 10) {
+                MetricCard(
+                    title: "Download",
+                    symbol: "arrow.down",
+                    measurement: monitor.download
+                )
+                MetricCard(
+                    title: "Upload",
+                    symbol: "arrow.up",
+                    measurement: monitor.upload
+                )
+            }
+
+            if let error = monitor.lastError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                Task { await monitor.runTest() }
+            } label: {
+                Label(
+                    monitor.isRunning ? "Testing connection…" : "Run Speed Test",
+                    systemImage: monitor.isRunning ? "hourglass" : "play.fill"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(monitor.isRunning)
+            .keyboardShortcut("n")
+
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle("Test automatically", isOn: autoRunBinding)
+                    .toggleStyle(.switch)
+                if let nextRunDate = monitor.nextRunDate {
+                    Text("Next test \(nextRunDate, style: .relative)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Interval: \(formattedInterval(monitor.repeatInterval))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Divider()
-            
-            
-            
-            Button("Quit") {
-                timer?.invalidate()
-                NSApplication.shared.terminate(nil)
-                
-            }.keyboardShortcut("q")
 
+            HistoryView(compact: true)
 
+            Divider()
 
-            
-        }label: {
-                
-            Text(running ? "🔘" : Speeds["Download"]?.icon?.description ?? "⚪️")
-
-            //Text(connected.isConnected ? Speeds["Download"]?.icon?.description ?? "⚪️" : "⚫️")
-            
-//            if connected.isConnected == true { // there should be a check if network is available, but all solutions block the UI.
-//
-//                if running == true {
-//                    Text("🔘").environmentObject(MonitoringNetworkState())
-//
-//                }else{
-//
-//                    Text(Speeds["Download"]?.icon?.description ?? "⚪️")
-
-//
-//                }
-//
-//            }else{
-//                // no network available
-//                Text("⚫️").onAppear(){
-//
-//                    Speeds["Download"]?.speed = 0.0
-//                    Speeds["Upload"]?.speed = 0.0
-//                    Speeds["Download"]?.date = Date()
-//                    Speeds["Upload"]?.date = Date()
-//                    addItem()
-//
-//                }
-//            }
-        }
-        
-    }
-    
-    enum OpenWindows: String, CaseIterable {
-        case Settingsview = "SettingsWindow"
-        case Historyview = "HistoryWindow"
-        //As many views as you need.
-        
-        func open(){
-//            repleattime = UserDefaults.standard.object(forKey: "repleattime") as? Int ?? 600
-            if let url = URL(string: "networkLight://\(self.rawValue)") { //replace myapp with your app's name
-                NSWorkspace.shared.open(url)
-            }
-        }
-    }
-
-    
-     func startTimer(){
-         timerrunning = true
-         timer = Timer.init(timeInterval: TimeInterval(repleattime), repeats: true, block: { timer in
-                Task{
-                    await readNetworkStatus()
+            HStack {
+                Button("History", systemImage: "chart.xyaxis.line") {
+                    showWindow(id: "history", title: "History")
                 }
-            })
-            RunLoop.current.add(timer!, forMode: RunLoop.Mode.common)
-         timer?.fire()
-    }
-    
-    
-     func stopTimer(){
-         timerrunning = false
-        if timer != nil {
-            timer?.invalidate()
-            timer = nil
-        }
-    }
-    
-    func setSleepTimerRestart(){
-        print("register Notification / Timer")
-        let notificationCenter = NSWorkspace.shared.notificationCenter
-        let mainQueue = OperationQueue.main
-        
-        notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification , object: nil, queue: mainQueue) { notification in
-            // restart timer if the mac wakes up from sleep
-            if self.timerrunning{
-                stopTimer()
-                startTimer()
-            }else{
-                print("Timer was not running during sleep")
-            }
-        }
-    }
-    
-    
-    func sendNotification(){
-        print("sendNotification")
-        if shouldSendNotification == true{
-            print("should send")
-            let content = UNMutableNotificationContent()
-            content.title = "Network speed low"
-            content.subtitle = Speeds["Upload"]?.date?.formatted() ?? Date().formatted()
-            content.body = "U: \(Speeds["Upload"]?.icon ?? "") \(String(format: "%.0f",Speeds["Upload"]?.speed ?? 0.0)) \(Speeds["Upload"]?.unit ?? "Mbps") \nD: \(Speeds["Download"]?.icon ?? "") \(String(format: "%.0f",Speeds["Download"]?.speed ?? 0.0)) \(Speeds["Download"]?.unit ?? "Mbps")"
-            
-            content.sound = .default
-            
-            let request = UNNotificationRequest(identifier: "networkLight.lowSpeed", content: content, trigger: nil)
-            UNUserNotificationCenter.current().add(request)
-            shouldSendNotification = false
-        }
-
-    }
-
-
-    func readNetworkStatus() async{
- 
-        running = true
-        do {
-            try await networkquality()
-            addItem()
-            sendNotification()
-            running = false
-        } catch {
-            running = false
-        }
-    }
-    
-    private func addItem() {
-        withAnimation {
-            let newSpeedLog = SpeedLog(context: viewContext)
-            if let download = Speeds["Download"]?.speed{
-                newSpeedLog.download = download
-            }
-            if let upload = Speeds["Upload"]?.speed{
-                newSpeedLog.upload = upload
-            }
-            if let date = Speeds["Upload"]?.date{
-                newSpeedLog.date = date
-            }
-            if let responsiveness = Speeds["Download"]?.responsiveness{
-                newSpeedLog.responsiveness = Int16(responsiveness)
-            }
-            
-            if let json = JSON{
-                newSpeedLog.json = json
-            }
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-    
-    private func networkquality() async throws{
-        let task = Process()
-        let pipe = Pipe()
-        
-        task.standardOutput = pipe
-        task.standardError = nil
-        task.arguments = ["-c", "networkquality -c"]
-        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        task.standardInput = nil
-        
-        try task.run()
-        
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)!
-        let decoder = JSONDecoder()
-        do{
-            let networkQualityData = try decoder.decode(networkQuality.self, from: output.data(using: .utf8) ?? Data())
-            NSLog("Data decode successfull")
-            print("Download: \(networkQualityData.dl_throughput/1000/1000) Mbps")
-            print("Upload: \(networkQualityData.ul_throughput/1000/1000) Mbps")
-            JSON = output
-            
-            let now = Date()
-            var Upload = Speed(speed: Double(networkQualityData.ul_throughput/1000/1000), unit: "Mbps", date: now)
-            var Download = Speed(speed: Double(networkQualityData.dl_throughput/1000/1000), unit: "Mbps", date: now, responsiveness: Int(networkQualityData.responsiveness.rounded()))
-
-            
-            
-            if let speed = Upload.speed{
-                let ratio = speed/maxUpload.wrappedValue*100
-                if ratio > 100{
-                    Upload.icon = SpeedLimits.first?.icon.wrappedValue
-                }else{
-                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
-                    Upload.icon = limit.first?.icon.wrappedValue
-                    
-                    if Upload.icon == SpeedLimits.last?.icon.wrappedValue {
-                        shouldSendNotification = true
-                    }
+                Button("Settings", systemImage: "gearshape") {
+                    showWindow(id: "settings", title: "NetworkLight Settings")
                 }
-            }
-            Speeds.updateValue(Upload, forKey: "Upload")
-            
-            if let speed = Download.speed{
-                let ratio = speed/maxDownload.wrappedValue*100
-                if ratio > 100{
-                    Download.icon = SpeedLimits.first?.icon.wrappedValue
-                }else{
-                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
-                    Download.icon = limit.first?.icon.wrappedValue
-                    
-                    if Download.icon == SpeedLimits.last?.icon.wrappedValue {
-                        shouldSendNotification = true
-                    }
+                Spacer()
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
                 }
-                
-                
+                .keyboardShortcut("q")
             }
-            Speeds.updateValue(Download, forKey: "Download")
-
-        }catch{
-            print("could not decode data")
-            print(error.localizedDescription)
-            print("---error--")
-            dump(error)
-            print("---data---")
-            dump(data)
-            print("---output--")
-            dump(output)
+            .buttonStyle(.borderless)
         }
-        
-        
+        .padding(16)
+        .frame(width: 360)
     }
-    
-    private func networkquality_old() async throws{
-        print("networkquality")
-        // there is the option to use "networkquality -c" which creates machine readable output (JSON). Unfortunatly Mbps has to be calculated manually from the data provided and I don't know how to do that. Therefore I scrap the output of the human readable format until I found a solution.
-        
-        let task = Process()
-        let pipe = Pipe()
-        
-        task.standardOutput = pipe
-        task.standardError = pipe
-        task.arguments = ["-c", "networkquality"]
-        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        task.standardInput = nil
-        
-        try task.run()
-        
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)!
-        
-        let UploadKeyword = "Uplink capacity: "
-        let DownloadKeyword = "\nDownlink capacity: "
-        let ResponsivenessKeyword = "\nResponsiveness: "
-   //     let EndKeyword = "\nIdle Latency:"
-        let now = Date()
-        
-        if let UploadRangeStart = output.range(of: UploadKeyword)?.upperBound, let UploadRangeEnd = output.range(of: DownloadKeyword)?.lowerBound{
-            
-            let UploadRange = Range(uncheckedBounds: (lower: UploadRangeStart, upper: UploadRangeEnd))
-            
-            let UploadComponents = output[UploadRange].components(separatedBy: " ")
-            
-            var Upload = Speed(speed: Double(UploadComponents[0]), unit: UploadComponents[1], date: now)
-            if Upload.unit == "Kbps" {
-                Upload.speed = (Upload.speed ?? 0.0)/1000
-            }
-            if let speed = Upload.speed{
-                let ratio = speed/maxUpload.wrappedValue*100
-                if ratio > 100{
-                    Upload.icon = SpeedLimits.first?.icon.wrappedValue
-                }else{
-                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
-                    Upload.icon = limit.first?.icon.wrappedValue
-                    
-                    if Upload.icon == SpeedLimits.last?.icon.wrappedValue {
-                        shouldSendNotification = true
-                    }
-                }
-            }
-            Speeds.updateValue(Upload, forKey: "Upload")
+
+    private var statusText: String {
+        if monitor.isRunning { return "Measuring your connection" }
+        if let date = monitor.lastRunDate {
+            return "Updated \(date.formatted(date: .omitted, time: .shortened))"
         }
-        
-        if let DownloadRangeStart = output.range(of: DownloadKeyword)?.upperBound, let DownloadRangeEnd = output.range(of: ResponsivenessKeyword)?.lowerBound {
-            let DownloadRange = Range(uncheckedBounds: (lower: DownloadRangeStart, upper: DownloadRangeEnd))
-            
-            let DownloadComponents = output[DownloadRange].components(separatedBy: " ")
-            var Download = Speed(speed: Double(DownloadComponents[0]), unit: DownloadComponents[1], date: now)
+        return "Ready for the first test"
+    }
 
-            if Download.unit == "Kbps" {
-                Download.speed = (Download.speed ?? 0.0)/1000
-            }
-            
-            if let speed = Download.speed{
-                let ratio = speed/maxDownload.wrappedValue*100
-                if ratio > 100{
-                    Download.icon = SpeedLimits.first?.icon.wrappedValue
-                }else{
-                    let limit = SpeedLimits.filter { $0.upperlimit.wrappedValue > ratio && $0.lowerlimit.wrappedValue < ratio}
-                    Download.icon = limit.first?.icon.wrappedValue
-                    
-                    if Download.icon == SpeedLimits.last?.icon.wrappedValue {
-                        shouldSendNotification = true
-                    }
-                }
+    private func showWindow(id: String, title: String) {
+        openWindow(id: id)
+        activateApplication()
 
+        // SwiftUI creates or restores the window after the openWindow action.
+        // Move it forward on the next run-loop pass once it exists.
+        DispatchQueue.main.async {
+            activateApplication()
+            guard let window = NSApplication.shared.windows.first(where: {
+                $0.title == title
+            }) else { return }
 
-            }
-            Speeds.updateValue(Download, forKey: "Download")
-            
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+            activateApplication()
         }
-
     }
-    
-    struct networkQuality:Decodable{
-        var base_rtt:Double
-        var dl_flows:Int
-        var dl_throughput:Int
-        var end_date:String
-        var il_h2_req_resp:[Int]
-        var il_tcp_handshake_443:[Int]
-        var il_tls_handshake:[Int]
-        var interface_name:String
-        var lud_foreign_h2_req_resp:[Int]
-        var lud_foreign_tcp_handshake_443:[Int]
-        var lud_foreign_tls_handshake:[Int]
-        var lud_self_h2_req_resp:[Int]
-        var os_version:String
-        var responsiveness:Double
-        var start_date:String
-        var ul_flows:Int
-        var ul_throughput:Int
-    }
-    
 
-    
-    
-    
+    private func activateApplication() {
+        if #available(macOS 14.0, *) {
+            NSApplication.shared.activate()
+        } else {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+        }
+    }
+}
+
+private struct MetricCard: View {
+    let title: String
+    let symbol: String
+    let measurement: Speed?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(measurement?.icon ?? "—")
+                Text(measurement.map { $0.speed.formatted(.number.precision(.fractionLength(1))) } ?? "—")
+                    .font(.title2.weight(.semibold))
+                    .monospacedDigit()
+                Text(measurement?.unit ?? "")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .modifier(StatusCardStyle())
+    }
+}
+
+private struct StatusCardStyle: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+        } else {
+            content.background(.quaternary, in: RoundedRectangle(cornerRadius: 14))
+        }
+    }
+}
+
+func formattedInterval(_ seconds: Int) -> String {
+    if seconds % 3_600 == 0 {
+        let hours = seconds / 3_600
+        return "\(hours) hour\(hours == 1 ? "" : "s")"
+    }
+    let minutes = max(seconds / 60, 1)
+    return "\(minutes) minute\(minutes == 1 ? "" : "s")"
 }
